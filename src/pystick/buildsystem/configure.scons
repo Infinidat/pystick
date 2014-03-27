@@ -1172,4 +1172,5 @@ if is_building():
 else:
     pyconfig_defines = dict()  # Just so we'll have something
 
+env.Append(CPPDEFINES=r'VERSION=\"2.7\"')
 Return('env pyconfig_defines')

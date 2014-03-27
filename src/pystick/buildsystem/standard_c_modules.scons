@@ -191,7 +191,7 @@ else:
                                     'Modules/expat/xmlparse.c',
                                     'Modules/expat/xmlrole.c',
                                     'Modules/expat/xmltok.c'],
-                        append_env=dict(CPPDEFINES='HAVE_EXPAT_CONFIG_H'))
+                        append_env=dict(CPPDEFINES='HAVE_EXPAT_CONFIG_H', CPPPATH='Modules/expat'))
     env.AddPythonModule('_elementtree', ['Modules/_elementtree.c'], append_env=dict(CPPDEFINES='USE_PYEXPAT_CAPI'))
 
 if env.get('HAVE_OPENSSL'):
