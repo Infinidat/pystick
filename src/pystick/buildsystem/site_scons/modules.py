@@ -29,9 +29,9 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
     objects = [obj_builder(source) for source in sources]
     if is_shared:
         build_env.Replace(SHLIBPREFIX='')  # shared lib modules don't need a 'lib' prefix
-        mod = build_env.SharedLibrary(Dir('#modules').File(name), objects)
+        mod = build_env.SharedLibrary(Dir('modules').File(name), objects)
     else:
-        mod = build_env.StaticLibrary(Dir('#modules').File(name), objects)
+        mod = build_env.StaticLibrary(Dir('modules').File(name), objects)
         env.Append(STATIC_PYTHON_MODULE_INIT_FUNCS=[name])
         env.Append(STATIC_PYTHON_MODULES=[mod])
         env.Append(STATIC_PYTHON_MODULE_OBJECTS=objects)
