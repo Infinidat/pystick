@@ -125,7 +125,19 @@ elif env['PLATFORM'] != 'win32':
         dynloadfile = 'dynload_stub.c'
 
     getpath_env = env.Clone()
-    getpath_env.Append(CCFLAGS=r'-DPYTHONPATH=\"/\"')
+    getpath_defines = []
+    if env.get('GETPATH_PYTHONPATH', None) is not None:
+        getpath_defines.append(r'PYTHONPATH=\"{}\"'.format(env['GETPATH_PYTHONPATH']))
+    if env.get('GETPATH_VERSION', None) is not None:
+        getpath_defines.append(r'VERSION=\"{}\"'.format(env['GETPATH_VERSION']))
+    if env.get('GETPATH_EXEC_PREFIX', None) is not None:
+        getpath_defines.append(r'EXEC_PREFIX=\"{}\"'.format(env['GETPATH_EXEC_PREFIX']))
+    if env.get('GETPATH_PREFIX', None) is not None:
+        getpath_defines.append(r'PREFIX=\"{}\"'.format(env['GETPATH_PREFIX']))
+    if env.get('GETPATH_LANDMARK', None) is not None:
+        getpath_defines.append(r'LANDMARK=\"{}\"'.format(env['GETPATH_LANDMARK']))
+
+    getpath_env.Append(CPPDEFINES=getpath_defines)
     getpath_o = getpath_env.Object('Modules/getpath.c')
     dynload_o = env.Object("Python/{}".format(dynloadfile))
     libpython_objects.extend([getpath_o, dynload_o])

@@ -22,6 +22,13 @@ vars.AddVariables(
                  None,
                  PathVariable.PathIsFile),
 
+    # Python hard coded configuration in getpath.c
+    ('GETPATH_PYTHONPATH', 'Set default PYTHONPATH to be compiled into Python', None),
+    ('GETPATH_VERSION', 'Set default VERSION to be compiled into Python', '2.7'),
+    ('GETPATH_PREFIX', 'Set default VERSION to be compiled into Python', None),
+    ('GETPATH_EXEC_PREFIX', 'Set default EXEC_PREFIX to be compiled into Python', None),
+    ('GETPATH_LANDMARK', 'Set default LANDMARK to be compiled into Python', None),
+
     # Configure
     BoolVariable('WITH_PYDEBUG', 'Set to enable pydebug', False),
     BoolVariable('WITH_IPV6', 'Set to enable IPv6', True),
