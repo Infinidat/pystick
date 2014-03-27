@@ -22,12 +22,12 @@ def fix_flags(flags):
     return [fix_flag(flag) for flag in flags]
 
 
-def main():
+def main(argv=sys.argv[1:]):
     sconsflags = os.environ.get('SCONSFLAGS', '')
     if sconsflags:
         os.environ.set('SCONSFLAGS', fix_flags(sconsflags.split()).join(" "))
 
-    sys.argv[1:] = fix_flags(sys.argv[1:])
+    sys.argv[1:] = fix_flags(argv)
 
     buildsystem_path = pkg_resources.resource_filename(__name__, "buildsystem")
     os.chdir(buildsystem_path)
