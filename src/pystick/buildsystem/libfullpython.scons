@@ -1,0 +1,3 @@
+Import("env libpython_objects freeze_modules")
+
+libfullpython = env.Library('fpython27', libpython_objects + ['Modules/config.c'] + env['STATIC_PYTHON_MODULE_OBJECTS'] + freeze_modules)

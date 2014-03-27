@@ -1,0 +1,9 @@
+PYTHON_BASE_SOURCE_LIST = ["Modules/python.c"]
+
+Import("env libpython freeze_modules")
+
+env.Prepend(LIBS=env['PYTHON_MODULES'] + libpython)
+
+python = env.Program('python', PYTHON_BASE_SOURCE_LIST + ['Modules/config.c'] + freeze_modules)
+
+Return('python')

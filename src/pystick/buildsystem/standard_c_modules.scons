@@ -1,0 +1,249 @@
+import re
+
+import cenv
+from modules import add_python_module_funcs_to_env
+
+Import("env build_dir")
+
+env = cenv.init(env.Clone(tools=['textfile']))
+
+is_win32 = env['PLATFORM'] in ('win32', 'mingw')
+is_posix = not is_win32
+is_cygwin = env['PLATFORM'] == 'cygwin'  # FIXME not used
+is_mingw = env['PLATFORM'] == 'mingw'
+is_darwin = env['PLATFORM'] == 'darwin'
+is_linux = env['PLATFORM'] == 'linux2'
+
+add_python_module_funcs_to_env(env)
+
+env.AddPythonModule('_codecs', 'Modules/_codecsmodule.c')
+env.AddPythonModule('errno', 'Modules/errnomodule.c')
+env.AddPythonModule('gc', 'Modules/gcmodule.c')
+env.AddPythonModule('signal', 'Modules/signalmodule.c')
+env.AddPythonModule('_sre', 'Modules/_sre.c')
+env.AddPythonModule('_symtable', 'Modules/symtablemodule.c')
+env.AddPythonModule('posix' if is_posix else 'nt', 'Modules/posixmodule.c')
+env.AddPythonModule('thread', 'Modules/threadmodule.c')
+env.AddPythonModule('_weakref', 'Modules/_weakref.c')
+env.AddPythonModule('xxsubtype', 'Modules/xxsubtype.c')
+env.AddPythonModule('zipimport', 'Modules/zipimport.c')
+env.AddPythonModule('array', 'Modules/arraymodule.c')
+env.AddPythonModule('audioop', 'Modules/audioop.c')
+env.AddPythonModule('_bisect', 'Modules/_bisectmodule.c')
+env.AddPythonModule('_codecs_cn', 'Modules/cjkcodecs/_codecs_cn.c')
+env.AddPythonModule('_codecs_hk', 'Modules/cjkcodecs/_codecs_hk.c')
+env.AddPythonModule('_codecs_iso2022', 'Modules/cjkcodecs/_codecs_iso2022.c')
+env.AddPythonModule('_codecs_jp', 'Modules/cjkcodecs/_codecs_jp.c')
+env.AddPythonModule('_codecs_kr', 'Modules/cjkcodecs/_codecs_kr.c')
+env.AddPythonModule('_codecs_tw', 'Modules/cjkcodecs/_codecs_tw.c')
+env.AddPythonModule('_collections', 'Modules/_collectionsmodule.c')
+env.AddPythonModule('cPickle', 'Modules/cPickle.c')
+env.AddPythonModule('cStringIO', 'Modules/cStringIO.c')
+env.AddPythonModule('_csv', 'Modules/_csv.c')
+env.AddPythonModule('_ctypes_test', 'Modules/_ctypes/_ctypes_test.c')
+env.AddPythonModule('cmath', ['Modules/_math.c', 'Modules/cmathmodule.c'], requirements=env.RequiredLibsPredicate('m'))
+env.AddPythonModule('crypt', 'Modules/cryptmodule.c', requirements=env.RequiredLibsPredicate('crypt'))
+env.AddPythonModule('datetime', ['Modules/datetimemodule.c', 'Modules/timemodule.c'],
+                    requirements=env.RequiredLibsPredicate('m'))
+env.AddPythonModule('_functools', 'Modules/_functoolsmodule.c')
+env.AddPythonModule('future_builtins', 'Modules/future_builtins.c')
+env.AddPythonModule('_heapq', 'Modules/_heapqmodule.c')
+env.AddPythonModule('_hotshot', 'Modules/_hotshot.c')
+env.AddPythonModule('_io', ['Modules/_io/_iomodule.c', 'Modules/_io/bufferedio.c', 'Modules/_io/bytesio.c',
+                          'Modules/_io/fileio.c', 'Modules/_io/iobase.c', 'Modules/_io/stringio.c',
+                          'Modules/_io/textio.c'])
+env.AddPythonModule('itertools', 'Modules/itertoolsmodule.c')
+env.AddPythonModule('_json', 'Modules/_json.c')
+env.AddPythonModule('_locale', 'Modules/_localemodule.c')
+env.AddPythonModule('_lsprof', ['Modules/_lsprof.c', 'Modules/rotatingtree.c'])
+env.AddPythonModule('math', ['Modules/_math.c', 'Modules/mathmodule.c'])
+env.AddPythonModule('mmap', 'Modules/mmapmodule.c')
+env.AddPythonModule('_multibytecodec', 'Modules/cjkcodecs/multibytecodec.c')
+env.AddPythonModule('operator', 'Modules/operator.c')
+env.AddPythonModule('parser', 'Modules/parsermodule.c')
+env.AddPythonModule('_random', 'Modules/_randommodule.c')
+env.AddPythonModule('strop', 'Modules/stropmodule.c')
+env.AddPythonModule('_struct', 'Modules/_struct.c')
+env.AddPythonModule('_testcapi', 'Modules/_testcapimodule.c')
+env.AddPythonModule('time', 'Modules/timemodule.c', requirements=env.RequiredLibsPredicate('m'))
+env.AddPythonModule('unicodedata', 'Modules/unicodedata.c')
+
+append_env=dict()
+if env.get('HAVE_LIBZ'):
+    append_env['CPPDEFINES'] ='USE_ZLIB_CRC32'
+env.AddPythonModule('binascii', 'Modules/binascii.c', append_env=append_env)
+
+if is_posix:
+    env.AddPythonModule('fcntl', 'Modules/fcntlmodule.c')
+    env.AddPythonModule('grp', 'Modules/grpmodule.c')
+    env.AddPythonModule('nis', 'Modules/nismodule.c', requirements=env.RequiredLibsPredicate('nsl'))
+    env.AddPythonModule('pwd', 'Modules/pwdmodule.c')
+    env.AddPythonModule('resource', 'Modules/resource.c')
+    env.AddPythonModule('spwd', 'Modules/spwdmodule.c')
+    env.AddPythonModule('syslog', 'Modules/syslogmodule.c')
+    env.AddPythonModule('termios', 'Modules/termios.c')
+    env.AddPythonModule('select', 'Modules/selectmodule.c')
+
+    append_env = dict()
+    if env['CC'] == 'gcc':
+        append_env['CCFLAGS'] = '-Wimplicit-function-declaration'
+    env.AddPythonModule('_multiprocessing', ['Modules/_multiprocessing/multiprocessing.c',
+                                             'Modules/_multiprocessing/semaphore.c',
+                                             'Modules/_multiprocessing/socket_connection.c'],
+                        append_env=append_env)
+    env.AddPythonModule('_socket', ['Modules/socketmodule.c', 'Modules/timemodule.c'])
+
+    if is_darwin:
+        env.AddPythonModule('_scproxy', 'Mac/Modules/_scproxy.c', 'systemconfiguration')
+        # TODO:
+        #add_python_extension(_ctypes
+        #    SOURCES _ctypes/_ctypes.c
+        #            _ctypes/callbacks.c
+        #            _ctypes/callproc.c
+        #            _ctypes/cfield.c
+        #            _ctypes/libffi_osx/src/closures.c
+        #            # Don't compile this as it's included by closures.c and not meant to be compiled
+        #            # _ctypes/libffi_osx/src/dlmalloc.c
+        #            _ctypes/libffi_osx/x86/ffi.c
+        #            _ctypes/libffi_osx/x86/ffi64.c
+        #            _ctypes/libffi_osx/src/prep_cif.c
+        #            _ctypes/stgdict.c
+        #            _ctypes/libffi_osx/x86/sysv.S
+        #            _ctypes/libffi_osx/x86/darwin64.S
+        #    INCLUDEDIRS ${SRC_DIR}/Modules/_ctypes/libffi/src/x86
+        #                ${SRC_DIR}/Modules/_ctypes/libffi/include
+        #)
+    else:
+        # TODO: finish writing the autoconf script for libffi using scons
+        # env, pyconfig_defines, fficonfig = SConscript('libffi.sconfigure', exports=['env', 'build_dir'])
+        # For now, we'll just copy a pre-made version of it.
+
+        # FIXME: check for x64 and based on that choose the .h files and .c and .S files
+        Command("Modules/_ctypes/libffi/fficonfig.h", "fficonfig.h.x86_64", Copy("$TARGET", "$SOURCE"))
+        Command("Modules/_ctypes/libffi/ffi.h", "ffi.h.x86_64", Copy("$TARGET", "$SOURCE"))
+
+        env.AddPythonModule('_ctypes', [
+                            'Modules/_ctypes/_ctypes.c',
+                            'Modules/_ctypes/callbacks.c',
+                            'Modules/_ctypes/callproc.c',
+                            'Modules/_ctypes/cfield.c',
+                            'Modules/_ctypes/libffi/src/closures.c',
+                            # Don't compile this as it's included by closures.c and not meant to be compiled
+                            # 'Modules/_ctypes/libffi/src/dlmalloc.c',
+                            'Modules/_ctypes/libffi/src/x86/ffi.c',
+                            'Modules/_ctypes/libffi/src/x86/ffi64.c',
+                            'Modules/_ctypes/libffi/src/prep_cif.c',
+                            'Modules/_ctypes/stgdict.c',
+                            'Modules/_ctypes/libffi/src/x86/sysv.S',
+                            'Modules/_ctypes/libffi/src/x86/unix64.S'],
+                            append_env=dict(CPPPATH=['Modules/_ctypes/libffi/src/x86',
+                                                     'Modules/_ctypes/libffi/include',
+                                                     'Modules/_ctypes/libffi'])) # last one is our generated fficonfig.h
+
+        if is_linux:
+            env.AddPythonModule('linuxaudiodev', 'Modules/linuxaudiodev.c')
+            env.AddPythonModule('ossaudiodev', 'Modules/ossaudiodev.c')
+elif is_win32:
+    # Windows
+    env.AddPythonModule('_msi', 'PC/_msi.c', env.RequiredLibsPredicate('cabinet', 'msi', 'rpcrt4'))
+    env.AddPythonModule('msvcrt', 'PC/msvcrtmodule.c')
+    env.AddPythonModule('_subprocess', 'PC/_subprocess.c')
+    env.AddPythonModule('_winreg', 'PC/_winreg.c')
+    env.AddPythonModule('_multiprocessing', [
+                        'Modules/_multiprocessing/multiprocessing.c',
+                        'Modules/_multiprocessing/semaphore.c',
+                        'Modules/_multiprocessing/pipe_connection.c',
+                        'Modules/_multiprocessing/socket_connection.c',
+                        'Modules/_multiprocessing/win32_functions.c'
+                        ], env.RequiredLibsPredicate('ws2_32'))
+    env.AddPythonModule('select', 'selectmodule.c', env.RequiredLibsPredicate('ws2_32'))
+    env.AddPythonModule('_socket' ['Modules/socketmodule.c', 'Modules/timemodule.c'],
+                        env.RequiredLibsPredicate('ws2_32'))
+
+    if is_mingw:
+        # FIXME: mingw
+        # TODO
+        #         INCLUDEDIRS ${SRC_DIR}/Modules/_ctypes/libffi/src/x86
+        #                     ${SRC_DIR}/Modules/_ctypes/libffi/include
+        #         DEFINITIONS X86_WIN32
+        #     add_python_extension(_ctypes
+        #         SOURCES _ctypes/_ctypes.c
+        #                 _ctypes/callbacks.c
+        #                 _ctypes/callproc.c
+        #                 _ctypes/cfield.c
+        #                 _ctypes/libffi_mingw/closures.c
+        #                 _ctypes/libffi_mingw/debug.c
+        #                 _ctypes/libffi_mingw/prep_cif.c
+        #                 _ctypes/libffi_mingw/raw_api.c
+        #                 _ctypes/libffi_mingw/x86/ffi.c
+        #                 _ctypes/libffi_mingw/x86/win32.S
+        #                 _ctypes/stgdict.c
+        pass
+    else:
+        # FIXME ???
+        pass
+
+if env.get('HAVE_LIBEXPAT'):
+    env.AddPythonModule('pyexpat', ['Modules/pyexpat.c'], env.RequiredLibsPredicate('expat'))
+    env.AddPythonModule('_elementtree', ['Modules/_elementtree.c'], env.RequiredLibsPredicate('expat'))
+else:
+    env.AddPythonModule('pyexpat', ['Modules/pyexpat.c',
+                                    'Modules/expat/xmlparse.c',
+                                    'Modules/expat/xmlrole.c',
+                                    'Modules/expat/xmltok.c'],
+                        append_env=dict(CPPDEFINES='HAVE_EXPAT_CONFIG_H'))
+    env.AddPythonModule('_elementtree', ['Modules/_elementtree.c'], append_env=dict(CPPDEFINES='USE_PYEXPAT_CAPI'))
+
+if env.get('HAVE_OPENSSL'):
+    append_env = dict()
+    if env['CC'] == 'gcc' and env['PLATFORM'] != 'win32':
+        append_env['CCFLAGS'] = '-Wno-deprecated-declarations'
+    env.AddPythonModule('_hashlib', 'Modules/_hashopenssl.c', append_env=append_env)
+    env.AddPythonModule('_ssl', 'Modules/_ssl.c', env.RequiredLibsPredicate('ssl', 'crypto'))
+else:
+    env.AddPythonModule('_md5', ['Modules/md5.c', 'Modules/md5module.c'])
+    env.AddPythonModule('_sha', 'Modules/shamodule.c')
+    env.AddPythonModule('_sha256', 'Modules/sha256module.c')
+    env.AddPythonModule('_sha512', 'Modules/sha512module.c')
+
+
+env.AddPythonModule('_bsddb', 'Modules/_bsddb.c', env.RequiredLibsPredicate('db'))
+env.AddPythonModule('bz2', 'Modules/bz2module.c', env.RequiredLibsPredicate('bz2'))
+
+if env.get('HAVE_CURSES'):
+    if env.get('HAVE_CURSES_PANEL'):
+        env.AddPythonModule('_curses_panel', 'Modules/_curses_panel.c')
+    env.AddPythonModule('_curses', 'Modules/_cursesmodule.c')
+
+if env.get('HAVE_LIBNDBM'):
+    append_env=dict(CPPDEFINES='HAVE_NDBM_H')
+    env.AddPythonModule('dbm', 'Modules/dbmmodule.c', env.RequiredLibsPredicate('ndbm'), append_env=append_env)
+elif env.get('HAVE_LIBGDBM'):
+    # TODO the order here should be set by the user
+    append_env=dict(CPPDEFINES=[d for d in ('HAVE_GDBM_NDBM_H', 'HAVE_GDBM_DASH_NDBM_H', 'HAVE_BERKDB_H') if d in env])
+    env.AddPythonModule('dbm', 'Modules/dbmmodule.c', env.RequiredLibsPredicate('ndbm'), append_env=append_env)
+elif env.get('HAVE_LIBDB'):
+    env.AddPythonModule('dbm', 'Modules/dbmmodule.c', env.RequiredLibsPredicate('db'), append_env=append_env)
+
+env.AddPythonModule('gdbm', 'Modules/gdbmmodule.c', env.RequiredLibsPredicate('gdbm'))
+
+if env.get('HAVE_READLINE'):
+    env.AddPythonModule('readline', 'Modules/readline.c')
+
+# TODO setup.py passes all sorts of flags here depending on the arch
+append_env = dict(CPPDEFINES=['SQLITE_OMIT_LOAD_EXTENSION=1', r'MODULE_NAME=\"sqlite3\"'])
+env.AddPythonModule('_sqlite3', ['Modules/_sqlite/cache.c',
+                                 'Modules/_sqlite/connection.c',
+                                 'Modules/_sqlite/cursor.c',
+                                 'Modules/_sqlite/microprotocols.c',
+                                 'Modules/_sqlite/module.c',
+                                 'Modules/_sqlite/prepare_protocol.c',
+                                 'Modules/_sqlite/row.c',
+                                 'Modules/_sqlite/statement.c',
+                                 'Modules/_sqlite/util.c'],
+                    env.RequiredLibsPredicate('sqlite3'), append_env=append_env)
+
+env.AddPythonModule('_tkinter', ['Modules/_tkinter.c', 'Modules/tkappinit.c'], env.RequiredLibsPredicate('tk'))
+env.AddPythonModule('zlib', 'Modules/zlibmodule.c', requirements=env.RequiredLibsPredicate('z'))
+
+Return("env")

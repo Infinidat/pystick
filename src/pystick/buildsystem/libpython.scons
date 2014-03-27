@@ -1,0 +1,141 @@
+# -*- python -*-
+LIBPYTHON_BASE_SOURCE_LIST = [
+    "Modules/getbuildinfo.c",
+    "Modules/main.c",
+    "Objects/abstract.c",
+    "Objects/boolobject.c",
+    "Objects/bufferobject.c",
+    "Objects/bytearrayobject.c",
+    "Objects/bytes_methods.c",
+    "Objects/capsule.c",
+    "Objects/cellobject.c",
+    "Objects/classobject.c",
+    "Objects/cobject.c",
+    "Objects/codeobject.c",
+    "Objects/complexobject.c",
+    "Objects/descrobject.c",
+    "Objects/dictobject.c",
+    "Objects/enumobject.c",
+    "Objects/exceptions.c",
+    "Objects/fileobject.c",
+    "Objects/floatobject.c",
+    "Objects/frameobject.c",
+    "Objects/funcobject.c",
+    "Objects/genobject.c",
+    "Objects/intobject.c",
+    "Objects/iterobject.c",
+    "Objects/listobject.c",
+    "Objects/longobject.c",
+    "Objects/memoryobject.c",
+    "Objects/methodobject.c",
+    "Objects/moduleobject.c",
+    "Objects/object.c",
+    "Objects/obmalloc.c",
+    "Objects/rangeobject.c",
+    "Objects/setobject.c",
+    "Objects/sliceobject.c",
+    "Objects/stringobject.c",
+    "Objects/structseq.c",
+    "Objects/tupleobject.c",
+    "Objects/typeobject.c",
+    "Objects/unicodectype.c",
+    "Objects/unicodeobject.c",
+    "Objects/weakrefobject.c",
+    "Parser/acceler.c",
+    "Parser/bitset.c",
+    "Parser/firstsets.c",
+    "Parser/grammar1.c",
+    "Parser/grammar.c",
+    "Parser/listnode.c",
+    "Parser/metagrammar.c",
+    "Parser/myreadline.c",
+    "Parser/node.c",
+    "Parser/parser.c",
+    "Parser/parsetok.c",
+    "Parser/pgen.c",
+    "Parser/tokenizer.c",
+    "Python/asdl.c",
+    "Python/ast.c",
+    "Python/bltinmodule.c",
+    "Python/ceval.c",
+    "Python/codecs.c",
+    "Python/compile.c",
+    "Python/dtoa.c",
+    "Python/errors.c",
+    "Python/formatter_string.c",
+    "Python/formatter_unicode.c",
+    # "Python/frozen.c",
+    "Python/future.c",
+    "Python/getargs.c",
+    "Python/getcompiler.c",
+    "Python/getcopyright.c",
+    "Python/getopt.c",
+    "Python/getplatform.c",
+    "Python/getversion.c",
+    "Python/graminit.c",
+    "Python/import.c",
+    "Python/importdl.c",
+    "Python/marshal.c",
+    "Python/modsupport.c",
+    "Python/mysnprintf.c",
+    "Python/mystrtoul.c",
+    "Python/peephole.c",
+    "Python/pyarena.c",
+    "Python/pyctype.c",
+    "Python/pyfpe.c",
+    "Python/pymath.c",
+    "Python/pystate.c",
+    "Python/pystrcmp.c",
+    "Python/pystrtod.c",
+    "Python/Python-ast.c",
+    "Python/pythonrun.c",
+    "Python/random.c",
+    "Python/structmember.c",
+    "Python/symtable.c",
+    "Python/sysmodule.c",
+    "Python/thread.c",
+    "Python/traceback.c",
+    "Python/_warnings.c"
+]
+
+Import("env build_dir pyconfig_defines")
+
+env = env.Clone(CPPFLAGS='-DPy_BUILD_CORE')
+
+libpython_objects = []
+
+if env.get('PYTHON_DYNLOAD_FILE', None):
+    dynloadfile = env['PYTHON_DYNLOAD_FILE']
+elif env['PLATFORM'] != 'win32':
+    # UNIX platforms
+    # FIXME the following defines should be set for getpath.c:
+    # - PYTHONPATH
+    # - PREFIX
+    # - EXEC_PREFIX (optional)
+    # - LANDMARK (optional)
+    if env['PLATFORM'] == 'aix':
+        dynloadfile = 'dynload_shlib.c' if 'HAVE_DLOPEN' in pyconfig_defines else 'dynload_aix.c'
+    elif env['PLATFORM'] == 'beos':
+        dynloadfile = 'dynload_beos.c'
+    elif env['PLATFORM'] == 'hp':
+        dynloadfile = 'dynload_hpux.c'
+    elif 'HAVE_DLOPEN' in pyconfig_defines:
+        dynloadfile = 'dynload_shlib.c'
+    else:
+        dynloadfile = 'dynload_stub.c'
+
+    getpath_env = env.Clone()
+    getpath_env.Append(CCFLAGS=r'-DPYTHONPATH=\"/\"')
+    getpath_o = getpath_env.Object('Modules/getpath.c')
+    dynload_o = env.Object("Python/{}".format(dynloadfile))
+    libpython_objects.extend([getpath_o, dynload_o])
+else:
+    # FIXME win32
+    pass
+
+
+libpython_objects.extend(env.Object(source) for source in LIBPYTHON_BASE_SOURCE_LIST)
+libpython = env.Library('python27', libpython_objects)
+# Depends(libpython, 'pyconfig.h')
+
+Return('libpython libpython_objects')

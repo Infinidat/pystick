@@ -1,0 +1,4 @@
+# -*- python -*-
+# This file generally should not be used. Instead, use the platform-specifc files such as linux_static.scons.
+env = Environment()
+SConscript('SConscript', exports='env')

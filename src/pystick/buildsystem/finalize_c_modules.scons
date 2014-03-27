@@ -1,0 +1,13 @@
+Import("env")
+
+env = env.Clone(tools=["textfile"])
+
+init_module_funcs = env['STATIC_PYTHON_MODULE_INIT_FUNCS']
+init_func_prototypes = "\n".join("extern void init{}(void);".format(name) for name in init_module_funcs)
+init_func_refs = "\n".join('{ "%(name)s", init%(name)s },' % dict(name=name) for name in init_module_funcs)
+config_c_subst = {r'/\* -- ADDMODULE MARKER 1 -- \*/': init_func_prototypes,
+                  r'/\* -- ADDMODULE MARKER 2 -- \*/': init_func_refs}
+
+config_c = env.Substfile('Modules/config.c.in', SUBST_DICT=config_c_subst)
+
+Return("config_c")
