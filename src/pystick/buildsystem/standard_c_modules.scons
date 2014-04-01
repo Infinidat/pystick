@@ -95,25 +95,36 @@ if is_posix:
     env.AddPythonModule('_socket', ['Modules/socketmodule.c', 'Modules/timemodule.c'])
 
     if is_darwin:
-        env.AddPythonModule('_scproxy', 'Mac/Modules/_scproxy.c', 'systemconfiguration')
-        # TODO:
-        #add_python_extension(_ctypes
-        #    SOURCES _ctypes/_ctypes.c
-        #            _ctypes/callbacks.c
-        #            _ctypes/callproc.c
-        #            _ctypes/cfield.c
-        #            _ctypes/libffi_osx/src/closures.c
-        #            # Don't compile this as it's included by closures.c and not meant to be compiled
-        #            # _ctypes/libffi_osx/src/dlmalloc.c
-        #            _ctypes/libffi_osx/x86/ffi.c
-        #            _ctypes/libffi_osx/x86/ffi64.c
-        #            _ctypes/libffi_osx/src/prep_cif.c
-        #            _ctypes/stgdict.c
-        #            _ctypes/libffi_osx/x86/sysv.S
-        #            _ctypes/libffi_osx/x86/darwin64.S
-        #    INCLUDEDIRS ${SRC_DIR}/Modules/_ctypes/libffi/src/x86
-        #                ${SRC_DIR}/Modules/_ctypes/libffi/include
-        #)
+        # TODO note that if we're doing a static build, these frameworks have to be added to the executable build flags.
+        env.AddPythonModule('_scproxy', 'Mac/Modules/_scproxy.c', 'systemconfiguration',
+                            append_env=dict(LDFLAGS='-framework CoreFoundation -framework SystemConfiguration'))
+
+        # TODO: we have several other OSX modules that Python's setup.py builds
+        # (lines 1621-1715 in Python 2.7.6's setup.py)
+
+        env.AddPythonModule('_ctypes', [
+                            'Modules/_ctypes/_ctypes.c',
+                            'Modules/_ctypes/callbacks.c',
+                            'Modules/_ctypes/callproc.c',
+                            'Modules/_ctypes/cfield.c',
+                            'Modules/_ctypes/stgdict.c',
+                            'Modules/_ctypes/malloc_closure.c',
+                            'Modules/_ctypes/darwin/dlfcn_simple.c',
+                            'Modules/_ctypes/libffi_osx/ffi.c',
+                            'Modules/_ctypes/libffi_osx/types.c',
+                            'Modules/_ctypes/libffi_osx/x86/darwin64.S',
+                            'Modules/_ctypes/libffi_osx/x86/x86-darwin.S',
+                            'Modules/_ctypes/libffi_osx/x86/x86-ffi_darwin.c',
+                            'Modules/_ctypes/libffi_osx/x86/x86-ffi64.c',
+                            'Modules/_ctypes/libffi_osx/powerpc/ppc-darwin.S',
+                            'Modules/_ctypes/libffi_osx/powerpc/ppc-darwin_closure.S',
+                            'Modules/_ctypes/libffi_osx/powerpc/ppc-ffi_darwin.c',
+                            'Modules/_ctypes/libffi_osx/powerpc/ppc64-darwin_closure.S'],
+                            append_env=dict(CPPPATH=['Modules/_ctypes/libffi/src/x86',
+                                                     'Modules/_ctypes/libffi_osx/include',
+                                                     'Modules/_ctypes/libffi_osx/powerpc',
+                                                     'Modules/_ctypes/libffi/include'],
+                                            CPPDEFINES='MACOSX'))
     else:
         # TODO: finish writing the autoconf script for libffi using scons
         # env, pyconfig_defines, fficonfig = SConscript('libffi.sconfigure', exports=['env', 'build_dir'])
@@ -128,13 +139,13 @@ if is_posix:
                             'Modules/_ctypes/callbacks.c',
                             'Modules/_ctypes/callproc.c',
                             'Modules/_ctypes/cfield.c',
+                            'Modules/_ctypes/stgdict.c',
                             'Modules/_ctypes/libffi/src/closures.c',
                             # Don't compile this as it's included by closures.c and not meant to be compiled
                             # 'Modules/_ctypes/libffi/src/dlmalloc.c',
                             'Modules/_ctypes/libffi/src/x86/ffi.c',
                             'Modules/_ctypes/libffi/src/x86/ffi64.c',
                             'Modules/_ctypes/libffi/src/prep_cif.c',
-                            'Modules/_ctypes/stgdict.c',
                             'Modules/_ctypes/libffi/src/x86/sysv.S',
                             'Modules/_ctypes/libffi/src/x86/unix64.S'],
                             append_env=dict(CPPPATH=['Modules/_ctypes/libffi/src/x86',
