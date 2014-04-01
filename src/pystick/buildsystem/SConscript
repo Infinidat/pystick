@@ -41,10 +41,10 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
         sconscript_kwargs = default_sconscript_kwargs.copy()
         sconscript_kwargs.update(variant_dir=Dir(build_dir).Dir('external_c_modules').abspath)
         external_python_c_modules = env.SConscript('external_c_modules/SConscript', **sconscript_kwargs)
+        env.AppendPythonModulesConfiguration(external_python_c_modules)
 
     # Create Modules/config.c with all the C modules
     env.AppendPythonModulesConfiguration(standard_python_c_modules)
-    env.AppendPythonModulesConfiguration(external_python_c_modules)
     config_c = SConscript('finalize_c_modules.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' config_c'
 
