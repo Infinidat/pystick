@@ -16,7 +16,7 @@ def no_freeze_conflict_if_equal(full_module_name, path_a, path_b):
     return False
 
 
-def freeze_file(env, target_path, path, namespace, module_name, frozen_modules, conflict_resolver):
+def freeze_file(env, target_path, path, namespace, module_name, frozen_modules, depends=[], conflict_resolver=no_freeze_conflict_if_equal):
     if module_name == '__init__':
         full_module_name = namespace
         is_package = True

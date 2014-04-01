@@ -260,4 +260,5 @@ env.AddPythonModule('_sqlite3', ['Modules/_sqlite/cache.c',
 env.AddPythonModule('_tkinter', ['Modules/_tkinter.c', 'Modules/tkappinit.c'], env.RequiredLibsPredicate('tk'))
 env.AddPythonModule('zlib', 'Modules/zlibmodule.c', requirements=env.RequiredLibsPredicate('z'))
 
-Return("env")
+python_modules = env.GetPythonModulesConfiguration()
+Return("python_modules")

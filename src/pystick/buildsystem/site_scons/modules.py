@@ -1,5 +1,5 @@
 from SCons.Script import *
-from cenv import get_global_variables
+
 
 def name_to_mangled(name):
     from utils import mangle_name
@@ -16,6 +16,22 @@ def are_python_modules_shared(env):
     elif 'STATIC_PYTHON_MODULES' in env:
         return not env['STATIC_PYTHON_MODULES']
     return True
+
+
+def get_python_modules_configuration(env):
+    return dict(
+        PYTHON_MODULES=env.get('PYTHON_MODULES', []),
+        STATIC_PYTHON_MODULE_INIT_FUNCS=env.get('STATIC_PYTHON_MODULE_INIT_FUNCS', []),
+        STATIC_PYTHON_MODULES=env.get('STATIC_PYTHON_MODULES', []),
+        STATIC_PYTHON_MODULE_OBJECTS=env.get('STATIC_PYTHON_MODULE_OBJECTS', [])
+    )
+
+
+def append_python_modules_configuration(env, conf):
+    env.Append(PYTHON_MODULES=conf['PYTHON_MODULES'],
+               STATIC_PYTHON_MODULE_INIT_FUNCS=conf['STATIC_PYTHON_MODULE_INIT_FUNCS'],
+               STATIC_PYTHON_MODULES=conf['STATIC_PYTHON_MODULES'],
+               STATIC_PYTHON_MODULE_OBJECTS=conf['STATIC_PYTHON_MODULE_OBJECTS'])
 
 
 def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[]):
@@ -96,3 +112,5 @@ def add_python_module_funcs_to_env(env):
     env.AddMethod(add_python_module, "AddPythonModule")
     env.AddMethod(required_libs_predicate, "RequiredLibsPredicate")
     env.AddMethod(add_python_module_vars, "AddPythonModuleVars")
+    env.AddMethod(get_python_modules_configuration, "GetPythonModulesConfiguration")
+    env.AddMethod(append_python_modules_configuration, "AppendPythonModulesConfiguration")

@@ -1,3 +1,5 @@
-Import("env libpython_objects freeze_modules")
+Import("env libpython_objects freeze_modules config_c")
 
-libfullpython = env.Library('fpython27', libpython_objects + ['Modules/config.c'] + env['STATIC_PYTHON_MODULE_OBJECTS'] + freeze_modules)
+libfullpython = env.Library('fpython27', libpython_objects + [config_c] + env['STATIC_PYTHON_MODULE_OBJECTS'] + freeze_modules)
+
+Return("libfullpython")

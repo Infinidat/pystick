@@ -2,6 +2,7 @@
 import SCons.Errors
 
 import cenv
+from modules import add_python_module_funcs_to_env
 from utils import is_building
 
 Import('env')
@@ -14,6 +15,8 @@ env.MergeFlags(env['XFLAGS'])
 
 
 if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
+    add_python_module_funcs_to_env(env)
+
     build_dir = Dir(env['BUILD_PATH']).abspath
     env.SConsignFile(Dir(build_dir).File('sconsign').path)
 
@@ -31,16 +34,19 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     configure = Alias('configure', [pyconfig, makefile])
 
     # build standard C modules:
-    env = env.SConscript('standard_c_modules.scons', **default_sconscript_kwargs)
+    standard_python_c_modules = env.SConscript('standard_c_modules.scons', **default_sconscript_kwargs)
 
     # use list of external modules:
     if env.get('EXTERNAL_C_MODULES_FILE'):
         sconscript_kwargs = default_sconscript_kwargs.copy()
         sconscript_kwargs.update(variant_dir=Dir(build_dir).Dir('external_c_modules').abspath)
-        env = env.SConscript('external_c_modules/SConscript', **sconscript_kwargs)
+        external_python_c_modules = env.SConscript('external_c_modules/SConscript', **sconscript_kwargs)
 
     # Create Modules/config.c with all the C modules
+    env.AppendPythonModulesConfiguration(standard_python_c_modules)
+    env.AppendPythonModulesConfiguration(external_python_c_modules)
     config_c = SConscript('finalize_c_modules.scons', **default_sconscript_kwargs)
+    default_sconscript_kwargs['exports'] += ' config_c'
 
     # Create a libpython that contains all the core python code.
     libpython, libpython_objects = env.SConscript('libpython.scons', **default_sconscript_kwargs)
@@ -49,27 +55,28 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     # Create a "bare bones" Python that doesn't freeze any module, and also _sysconfigdata.py files.
     bare_python = SConscript('barepython.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' bare_python'
+
+    # Freeze Python's stdlib modules:
+    freeze_modules = SConscript("freeze_stdlib.scons", **default_sconscript_kwargs)
+    default_sconscript_kwargs['exports'] += ' freeze_modules'
+
+    if env.get('EXTERNAL_PY_MODULES_FILE'):
+        sconscript_kwargs = default_sconscript_kwargs.copy()
+        sconscript_kwargs.update(variant_dir=Dir(build_dir).Dir('external_py_modules').abspath)
+        freeze_modules = env.SConscript('external_py_modules/SConscript', **sconscript_kwargs)
+
+    # Finalize freezing by creating the import file that declares PyImport_FrozenModules
+    freeze_modules = SConscript("finalize_py_modules.scons", **default_sconscript_kwargs)
+
+    # Pack a full Python library that can later be used by other projects
+    libfullpython = SConscript('libfullpython.scons', **default_sconscript_kwargs)
+    default_sconscript_kwargs['exports'] += ' libfullpython'
+
+    # Create a full python executable for fun and games
+    fullpython = SConscript('fullpython.scons', **default_sconscript_kwargs)
 elif is_building():
     print("Error: to build you have to pass BUILD_PATH and PYTHON_SOURCE_PATH either in command line or a vars file (--vars)")
 
-
-
-
-# # Build freeze modules for Python's stdlib
-# freeze_modules = SConscript("freeze_stdlib.scons", **default_sconscript_kwargs)
-# default_sconscript_kwargs['exports'] += ' freeze_modules'
-
-# # Freeze all the eggs we need
-# freeze_modules.extend(SConscript("external_eggs.scons", **default_sconscript_kwargs))
-
-# # Finalize freezing by creating the import file that declares PyImport_FrozenModules
-# freeze_modules = SConscript("finalize_freeze.scons", **default_sconscript_kwargs)
-
-# # Build a full Python executable containing all the frozen modules
-# python = SConscript('python.scons', **default_sconscript_kwargs)
-
-# # Pack a full Python library that can later be used by other projects
-# libfullpython = SConscript('libfullpython.scons', **default_sconscript_kwargs)
 
 # TODO: help
 Help("""
