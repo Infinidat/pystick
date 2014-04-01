@@ -3,7 +3,7 @@ import re
 import cenv
 from modules import add_python_module_funcs_to_env
 
-Import("env build_dir")
+Import("env build_dir pyconfig_defines")
 
 env = cenv.init(env.Clone(tools=['textfile']))
 
@@ -79,7 +79,8 @@ if is_posix:
     env.AddPythonModule('nis', 'Modules/nismodule.c', requirements=env.RequiredLibsPredicate('nsl'))
     env.AddPythonModule('pwd', 'Modules/pwdmodule.c')
     env.AddPythonModule('resource', 'Modules/resource.c')
-    env.AddPythonModule('spwd', 'Modules/spwdmodule.c')
+    env.AddPythonModule('spwd', 'Modules/spwdmodule.c',
+                        requirements=pyconfig_defines.get('HAVE_GETSPNAM', False) or pyconfig_defines.get('HAVE_GETSPENT', False))
     env.AddPythonModule('syslog', 'Modules/syslogmodule.c')
     env.AddPythonModule('termios', 'Modules/termios.c')
     env.AddPythonModule('select', 'Modules/selectmodule.c')

@@ -6,6 +6,7 @@ Usage
 -----
 Nothing to use here.
 
+
 Checking out the code
 =====================
 Run the following commands:
@@ -31,6 +32,15 @@ possible with Python's own build system.
 So instead of trying to figure out where each library or include is found, we leave it for the user to exactly specify
 the compile and link flags by configuring SCons' env, and adding lots of other variables the user can use to further
 tweak the build.
+
+
+Command line examples for various platforms
+===========================================
+Building on OSX:
+
+```
+./bin/pack BUILD_PATH=./build PYTHON_SOURCE_PATH=path/to/python XFLAGS='-g -pthread -framework CoreFoundation -framework SystemConfiguration'
+```
 
 
 TODOs

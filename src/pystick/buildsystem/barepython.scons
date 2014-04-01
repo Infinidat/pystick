@@ -23,10 +23,10 @@ Depends(bare_python, 'configure')
 
 # TODO: refactor to a separate scons file:
 
-# FIXME version
 modules_setup_local = Dir('Modules').File('Setup.local')
-env.Command(modules_setup_local, [], "/bin/touch $TARGET")
+env.Command(modules_setup_local, [], Touch("$TARGET"))
 
+# FIXME version
 # Don't get confused by the 'build' directory here - it's a 'build' directory under our build directory that Python
 # creates.
 build_sysconfigdata_path = Dir('build').Dir('lib.platform-2.7').File('_sysconfigdata.py')

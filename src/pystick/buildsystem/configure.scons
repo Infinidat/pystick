@@ -612,6 +612,44 @@ int main() {
     return config.CheckCCompiles('Checking if TCL has UCS4 support... ', code)
 
 
+def check_working_sem_getvalue(config):
+    # Will return True if sem_getvalue is working, False if not.
+    code = """
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <semaphore.h>
+#include <sys/stat.h>
+
+int main(void){
+  sem_t *a = sem_open("/autocftw", O_CREAT, S_IRUSR|S_IWUSR, 0);
+  int count;
+  int res;
+  if(a==SEM_FAILED){
+    perror("sem_open");
+    return 1;
+
+  }
+  res = sem_getvalue(a, &count);
+  sem_close(a);
+  sem_unlink("/autocftw");
+  return res==-1 ? 1 : 0;
+}
+"""
+    return config.CheckCRuns('Checking for working sem_getvalue()... ', code)
+
+
+def check_osx_10_5_sdk(config):
+    code = """
+#include <Carbon/Carbon.h>
+int main (void) {
+    FSIORefNum fRef = 0;
+    return 0;
+}
+"""
+    return config.CheckCCompiles('Checking for OSX 10.5 SDK or later... ', code)
+
+
 def configure():
     defines = dict()
     def add_int_define(key, flag, value=1):
@@ -684,7 +722,7 @@ def configure():
 
     for func in ('_getpty', 'acosh', 'alarm', 'asinh', 'atanh', 'bind_textdomain_codeset', 'chflags', 'chown', 'chroot',
                  'clock', 'confstr', 'copysign', 'ctermid', 'ctermid_r', 'dlopen', 'dup2', 'epoll_create', 'erf',
-                 'erfc', 'execv', 'expm1', 'fchdir', 'fchmod', 'fchown', 'fdatasync', 'finite', 'fork', 'forkpty',
+                 'erfc', 'execv', 'expm1', 'fchdir', 'fchmod', 'fchown', 'finite', 'fork', 'forkpty',
                  'fpathconf', 'fseek64', 'fseeko', 'fstatvfs', 'fsync', 'ftell64', 'ftello', 'ftime', 'ftruncate',
                  'gai_strerror', 'gamma', 'getcwd', 'getgroups', 'gethostbyname', 'gethostbyname_r', 'getitimer',
                  'getloadavg', 'getlogin',
@@ -701,6 +739,10 @@ def configure():
                  'timegm', 'times', 'tmpfile', 'tmpnam', 'tmpnam_r', 'truncate', 'uname', 'unsetenv', 'utimes', 'wait3',
                  'wait4', 'waitpid', 'wcscoll'):
         add_int_define(symbol_to_define(func), config.CheckFunc(func))
+
+    # On OSX if you declare fdatasync it will successfully link(!) but the function doesn't really exist.
+    if env['PLATFORM'] != 'darwin':
+        add_int_define(symbol_to_define('fdatasync'), config.CheckFunc('fdatasync'))
 
     def check_dirent(key, header):
         if config.CheckHeader(header):
@@ -752,10 +794,10 @@ def configure():
     add_int_define('HAVE_BROKEN_POLL', check_poll_broken(config))
 
 
-# /* define to 1 if your sem_getvalue is broken. */
-# #undef HAVE_BROKEN_SEM_GETVALUE
 # /* Define if `unsetenv` does not return an int. */
 # #undef HAVE_BROKEN_UNSETENV
+
+    add_int_define('HAVE_BROKEN_SEM_GETVALUE', not check_working_sem_getvalue(config))
 
     defines['HAVE_DECL_ISFINITE'] = 1 if config.CheckDeclaration('isfinite', includes='#include <math.h>') else 0
     defines['HAVE_DECL_ISINF'] = 1 if config.CheckDeclaration('isinf', includes='#include <math.h>') else 0
@@ -785,11 +827,8 @@ def configure():
     add_int_define('HAVE_GETHOSTBYNAME_R_3_ARG', check_gethostbyname_r_3_arg(config));
     add_int_define('HAVE_GETHOSTBYNAME_R_5_ARG', check_gethostbyname_r_5_arg(config));
     add_int_define('HAVE_GETHOSTBYNAME_R_6_ARG', check_gethostbyname_r_6_arg(config));
-
-# /* Define if you have the 'kqueue' functions. */
-# #undef HAVE_KQUEUE
-# FIXME
-
+    add_int_define('HAVE_KQUEUE', config.CheckDeclaration('kqueue',
+                                                          includes='#include <sys/types.h>\n#include <sys/event.h>'))
     if env['WITH_DL']:
         defines['HAVE_LIBDL'] = 1
 
@@ -802,8 +841,8 @@ def configure():
 # /* Define to 1 if you have the `resolv' library (-lresolv). */
 # #undef HAVE_LIBRESOLV
 
-# /* Define if compiling using MacOS X 10.5 SDK or later. */
-# #undef HAVE_OSX105_SDK
+    if env['PLATFORM'] == 'darwin':
+        add_int_define('HAVE_OSX105_SDK', check_osx_10_5_sdk(config))
 
     add_int_define('HAVE_PROTOTYPES', check_compiler_prototypes(config))
 
@@ -1015,7 +1054,12 @@ int main() {
         defines['WITH_THREAD'] = 1
         defines['_POSIX_PTHREAD_SEMANTICS'] = 1
         # FIXME: check if these are automatically defined:
-        #defines['_REENTRANT'] = 1
+
+        # TODO There's a lot of code in configure.ac to try and figure out which threads mechanism is used for the
+        # platform, and based on that whether or not to force _REENTRANT.
+        # Later we may copy the logic here, but for now we'll do it per platform.
+        if env['PLATFORM'] == 'darwin':
+            defines['_REENTRANT'] = 1
         #defines['_POSIX_THREADS'] = 1
 
         # #undef HURD_C_THREADS
@@ -1081,7 +1125,7 @@ int main() {
 #    #define below would cause a syntax error. */
 # #undef _UINT64_T
 
-    # TODO: there are platforms where it's not _XOPEN_SOURCE / POSIX / etc. We currently don't support them.
+    # FIXME there are platforms where it's not _XOPEN_SOURCE / POSIX / etc. We currently don't support them.
     defines['_GNU_SOURCE'] = 1
     defines['_ALL_SOURCE'] = 1
     defines['_TANDEM_SOURCE'] = 1
@@ -1089,13 +1133,15 @@ int main() {
     if check_safe_to_define__extensions__(config, default_includes):
         defines['__EXTENSIONS__'] = 1
 
-    defines['_XOPEN_SOURCE'] = 600
-    defines['_XOPEN_SOURCE_EXTENDED'] = 1
+    if not (env['PLATFORM'] in 'darwin'):
+        defines['_XOPEN_SOURCE'] = 600
+        defines['_XOPEN_SOURCE_EXTENDED'] = 1
+        defines['_POSIX_C_SOURCE'] = '200112L'
+
     defines['__BSD_VISIBLE'] = 1
     # defines['_BSD_SOURCE'] = 1
     defines['_BSD_TYPES'] = 1
     defines['_DARWIN_C_SOURCE'] = 1
-    defines['_POSIX_C_SOURCE'] = '200112L'
     defines['_NETBSD_SOURCE'] = 1
     defines['STDC_HEADERS'] = 1
     defines['SHLIB_EXT'] = '"{}"'.format(env['SHLIBSUFFIX'])
@@ -1172,5 +1218,4 @@ if is_building():
 else:
     pyconfig_defines = dict()  # Just so we'll have something
 
-env.Append(CPPDEFINES=r'VERSION=\"2.7\"')
 Return('env pyconfig_defines')
