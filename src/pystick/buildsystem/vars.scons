@@ -61,7 +61,7 @@ vars.AddVariables(
     BoolVariable('HAVE_LIBEXPAT', 'Set if you added libexpat to LIBS and the include directory to CPPFLAGS', False),
     BoolVariable('HAVE_OPENSSL', 'Set if you added OpenSSL (libssl and libcrypto) to LIBS and the include directory to CPPFLAGS', False),
     BoolVariable('HAVE_CURSES', 'Set if you added libcurses or libncurses(w) to LIBS and the include directory to CPPFLAGS', False),
-    BoolVariable('HAVE_CURSES', 'Set if you added libpanel(w) to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_CURSES_PANEL', 'Set if you added libpanel(w) to LIBS and the include directory to CPPFLAGS', False),
     BoolVariable('HAVE_READLINE', 'Set if you added libreadline to LIBS and the include directory to CPPFLAGS', False),
 
     # Win32 specific libraries
