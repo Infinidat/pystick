@@ -1,5 +1,7 @@
 import re
-Import("env", "freeze_modules")
+Import("env freeze_modules")
+
+freeze_modules = list(freeze_modules)
 
 def extract_module_attributes_from_freeze_file(freeze_filename):
     with open(freeze_filename, "r") as source_f:

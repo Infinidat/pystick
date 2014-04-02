@@ -1,3 +1,4 @@
+import os
 from SCons.Script import *
 
 
@@ -19,13 +20,14 @@ def add_bare_python_to_env(env):
 
 def bare_python_env(env):
     # Find where the Python's repository by searching for Lib.
-    python_repo_dir = [d for d in Dir('Lib').get_all_rdirs() if d.exists()][0].Dir('..').abspath
+    python_lib_dir = env.Dir("#python/Lib").rentry().abspath
+    python_repo_dir = os.path.abspath(os.path.join(python_lib_dir, ".."))
 
     env = env.Clone()
     # We set _PYTHON_HOST_PLATFORM to 'platform' so it'll be easier for us to tell where _sysconfigdata.py will be
     # generated and not having to run python to do it. Also, when we'll do cross-compile we'll have to do that anyhow.
     env.Append(ENV={'_PYTHON_HOST_PLATFORM': 'platform',
-                    'PYTHONPATH': 'modules:' + "{}/Lib".format(python_repo_dir),
+                    'PYTHONPATH': 'modules:' + python_lib_dir,
                     'PYTHONHOME': python_repo_dir,
                     'PATH': env['ENV']['PATH'] + ":{}".format(str(Dir('.')))})
     return env

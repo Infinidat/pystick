@@ -94,6 +94,6 @@ def create_makefile_defines():
     d['_MODOBJS_'] = ''  # FIXME
     return d
 
-env.Substfile('Makefile.pre.in', SUBST_DICT=create_makefile_defines())
-makefile = Command(File('Makefile').get_path(), "Makefile.pre", Copy("$TARGET", "$SOURCE"))
+env.Substfile('Makefile.pre', '#python/Makefile.pre.in', SUBST_DICT=create_makefile_defines())
+makefile = Command('Makefile', 'Makefile.pre', Copy("$TARGET", "$SOURCE"))
 Return('makefile')

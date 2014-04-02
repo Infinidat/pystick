@@ -1,3 +1,4 @@
+import os.path
 from SCons.Script import *
 
 
@@ -22,7 +23,7 @@ def get_python_modules_configuration(env):
     return dict(
         PYTHON_MODULES=env.get('PYTHON_MODULES', []),
         STATIC_PYTHON_MODULE_INIT_FUNCS=env.get('STATIC_PYTHON_MODULE_INIT_FUNCS', []),
-        STATIC_PYTHON_MODULES=env.get('STATIC_PYTHON_MODULES', []),
+        STATIC_PYTHON_MODULE_NAMES=env.get('STATIC_PYTHON_MODULE_NAMES', []),
         STATIC_PYTHON_MODULE_OBJECTS=env.get('STATIC_PYTHON_MODULE_OBJECTS', [])
     )
 
@@ -30,7 +31,7 @@ def get_python_modules_configuration(env):
 def append_python_modules_configuration(env, conf):
     env.Append(PYTHON_MODULES=conf['PYTHON_MODULES'],
                STATIC_PYTHON_MODULE_INIT_FUNCS=conf['STATIC_PYTHON_MODULE_INIT_FUNCS'],
-               STATIC_PYTHON_MODULES=conf['STATIC_PYTHON_MODULES'],
+               STATIC_PYTHON_MODULE_NAMES=conf['STATIC_PYTHON_MODULE_NAMES'],
                STATIC_PYTHON_MODULE_OBJECTS=conf['STATIC_PYTHON_MODULE_OBJECTS'])
 
 
@@ -42,14 +43,23 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
     if append_env:
         build_env.Append(**append_env)
     obj_builder = build_env.SharedObject if is_shared or is_pic else build_env.StaticObject
-    objects = [obj_builder(source) for source in sources]
+
+    # We map each source to (perhaps variant dir)/modules/obj/full/path/to/source
+    # so we won't conflict when several modules (perhaps external) have the same file names.
+    def source_to_obj_path(source):
+        d, p = os.path.splitdrive(env.File(source).abspath)  # on Windows, get the drive first
+        p, _ = os.path.splitext(p)  # Remove the extension (i.e. '.c')
+        parts = [e for e in ('modules', 'obj', d, p) if e]
+        return os.path.sep.join([part[len(os.path.sep):] if part.startswith(os.path.sep) else part for part in parts])
+    objects = [obj_builder(target=source_to_obj_path(source), source=source) for source in sources]
     if is_shared:
-        build_env.Replace(SHLIBPREFIX='')  # shared lib modules don't need a 'lib' prefix
-        mod = build_env.SharedLibrary(Dir('modules').File(name), objects)
+        build_env.Replace(SHLIBPREFIX='')  # shared lib modules don't need a 'lib' prefix, FIXME also in OSX?
+        mod = build_env.SharedLibrary(target=env.Dir('modules').File(name), source=objects)
     else:
-        mod = build_env.StaticLibrary(Dir('modules').File(name), objects)
+        mod = build_env.StaticLibrary(target=env.Dir('modules').File(env['LIBPREFIX'] + name + env['LIBSUFFIX']),
+                                      source=objects)
         env.Append(STATIC_PYTHON_MODULE_INIT_FUNCS=[name])
-        env.Append(STATIC_PYTHON_MODULES=[mod])
+        env.Append(STATIC_PYTHON_MODULE_NAMES=[mod])
         env.Append(STATIC_PYTHON_MODULE_OBJECTS=objects)
     env.Append(PYTHON_MODULES=[mod])
 

@@ -8,6 +8,7 @@ from utils import is_building
 Import('env')
 
 AddOption('--vars', dest='vars', type='string', nargs=1, action='store', metavar='FILE', help='Variables file to use')
+AddOption('--dumpenv', dest='dumpenv', action='store_true', default=False, help='Dump environment')
 vars = cenv.init_global_variables(GetOption('vars'), ARGUMENTS)
 env = SConscript('vars.scons', exports='env')
 vars.Update(env, ARGUMENTS)
@@ -15,20 +16,27 @@ env.MergeFlags(env['XFLAGS'])
 
 
 if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
+    print("Using Python sources from {}".format(env.Dir('$PYTHON_SOURCE_PATH').abspath))
+
     add_python_module_funcs_to_env(env)
 
-    build_dir = Dir(env['BUILD_PATH']).abspath
-    env.SConsignFile(Dir(build_dir).File('sconsign').path)
+    # Put SCons' database in our build directory.
+    env.SConsignFile('$BUILD_PATH/sconsign')
 
-    env, pyconfig_defines = SConscript('configure.scons', exports='env build_dir')
+    # Mount Python sources under our project root and make sure all targets that come from these sources go to
+    # our build directory.
+    env.Dir('#python').addRepository(env.Dir('$PYTHON_SOURCE_PATH'))
 
-    env.Append(CPPPATH=["#Include", build_dir])
-    env.Repository(env['PYTHON_SOURCE_PATH'])
+    # Run our configure-equivalent code so we can create pyconfig.h, Makefile, etc.
+    env, pyconfig_defines = env.SConscript('configure.scons', exports='env')
 
-    # These kwargs will get passed to child scripts:
-    default_sconscript_kwargs = dict(exports='env build_dir pyconfig_defines', variant_dir=build_dir, duplicate=False)
+    # Add Python's (mounted) Include directory to our include path.
+    env.Append(CPPPATH=['#python/Include', '$BUILD_PATH'])
 
-    # configure stage:
+    # # These kwargs will get passed to child scripts (less typing):
+    default_sconscript_kwargs = dict(exports='env pyconfig_defines', variant_dir=env.Dir('$BUILD_PATH'), duplicate=False)
+
+    # Configure stage: create pyconfig.h and Makefile, needed for building Python and creating _sysconfigdata.py
     pyconfig = env.SConscript('pyconfig.scons', **default_sconscript_kwargs)
     makefile = env.SConscript('makefile.scons', **default_sconscript_kwargs)
     configure = Alias('configure', [pyconfig, makefile])
@@ -38,9 +46,7 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
 
     # use list of external modules:
     if env.get('EXTERNAL_C_MODULES_FILE'):
-        sconscript_kwargs = default_sconscript_kwargs.copy()
-        sconscript_kwargs.update(variant_dir=Dir(build_dir).Dir('external_c_modules').abspath)
-        external_python_c_modules = env.SConscript('external_c_modules/SConscript', **sconscript_kwargs)
+        external_python_c_modules = env.SConscript('external_c_modules.scons', **default_sconscript_kwargs)
         env.AppendPythonModulesConfiguration(external_python_c_modules)
 
     # Create Modules/config.c with all the C modules
@@ -56,14 +62,12 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     bare_python = SConscript('barepython.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' bare_python'
 
-    # Freeze Python's stdlib modules:
+    # # Freeze Python's stdlib modules:
     freeze_modules = SConscript("freeze_stdlib.scons", **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' freeze_modules'
 
     if env.get('EXTERNAL_PY_MODULES_FILE'):
-        sconscript_kwargs = default_sconscript_kwargs.copy()
-        sconscript_kwargs.update(variant_dir=Dir(build_dir).Dir('external_py_modules').abspath)
-        freeze_modules = env.SConscript('external_py_modules/SConscript', **sconscript_kwargs)
+        freeze_modules = env.SConscript('external_py_modules.scons', **default_sconscript_kwargs)
 
     # Finalize freezing by creating the import file that declares PyImport_FrozenModules
     freeze_modules = SConscript("finalize_py_modules.scons", **default_sconscript_kwargs)
@@ -74,6 +78,9 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
 
     # Create a full python executable for fun and games
     fullpython = SConscript('fullpython.scons', **default_sconscript_kwargs)
+
+    if GetOption('dumpenv'):
+        print(env.Dump())
 elif is_building():
     print("Error: to build you have to pass BUILD_PATH and PYTHON_SOURCE_PATH either in command line or a vars file (--vars)")
 

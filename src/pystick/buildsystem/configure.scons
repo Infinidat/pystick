@@ -6,7 +6,7 @@ import cenv
 
 from utils import is_building
 
-Import('env build_dir')
+Import('env')
 
 
 if env['PLATFORM'] == 'posix':  # posix is a platform SCons sets, but we want more details (hint: linux?)
@@ -673,8 +673,8 @@ def configure():
             defines[key] = True
         return flag
 
-    configure_log = Dir(build_dir).File('configure.log')
-    config = env.Configure(conf_dir=Dir(build_dir).Dir('.sconf_temp'),
+    configure_log = env.Dir('$BUILD_PATH').File('configure.log')
+    config = env.Configure(conf_dir=env.Dir('$BUILD_PATH').Dir('.sconf_temp'),
                            log_file=configure_log,
                            custom_tests=confutils.get_custom_tests_dict())
 

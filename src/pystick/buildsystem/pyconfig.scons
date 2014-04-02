@@ -1,14 +1,13 @@
 Import('env pyconfig_defines')
 env = env.Clone(tools=['textfile'])
 
-def _create_pyconfig_subst_dict(defines):
+def create_pyconfig_subst_dict():
     result = []
-    for key, val in defines.iteritems():
+    for key, val in pyconfig_defines.iteritems():
         result.append((r"#(\s*)undef {}\n".format(key), "#\\1define {} {}\n".format(key, val)))
     # last rule - comment out all other undefs
     result.append((r"(#\s*undef [^\n]*)\n", r"/* \1 */\n"))
     return result
 
-
-pyconfig = env.Substfile('pyconfig.h.in', SUBST_DICT=_create_pyconfig_subst_dict(pyconfig_defines))
+pyconfig = env.Substfile('pyconfig.h', '#python/pyconfig.h.in', SUBST_DICT=create_pyconfig_subst_dict())
 Return('pyconfig')

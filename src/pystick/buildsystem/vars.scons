@@ -71,8 +71,9 @@ vars.AddVariables(
     BoolVariable('HAVE_LIBRPCRT4', 'Set if you added Win32 librpcrt4 to LIBS and the include directory to CPPFLAGS', False),
 
     # Modules
-    BoolVariable('SHARED_MODULES', 'Set to build all modules as shared (can be overridden per module)', True),
-    BoolVariable('PIC_MODULES', 'Set to build all modules with -fPIC (can be overridden per module)', True),
+    BoolVariable('SHARED_PYTHON_MODULES', 'Set to build all modules as shared (can be overridden per module)', None),
+    BoolVariable('STATIC_PYTHON_MODULES', 'Set to build all modules as static (can be overridden per module)', None),
+    BoolVariable('PIC_PYTHON_MODULES', 'Set to build all modules with -fPIC (can be overridden per module)', True),
 )
 
 # Builtin modules declaration

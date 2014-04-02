@@ -8,6 +8,6 @@ init_func_refs = "\n".join('{ "%(name)s", init%(name)s },' % dict(name=name) for
 config_c_subst = {r'/\* -- ADDMODULE MARKER 1 -- \*/': init_func_prototypes,
                   r'/\* -- ADDMODULE MARKER 2 -- \*/': init_func_refs}
 
-config_c = env.Substfile('Modules/config.c.in', SUBST_DICT=config_c_subst)
+config_c = env.Substfile('modules/config.c', '#python/Modules/config.c.in', SUBST_DICT=config_c_subst)
 
 Return("config_c")
