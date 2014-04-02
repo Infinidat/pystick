@@ -42,6 +42,17 @@ if env['PLATFORM'] not in AVAILABLE_PLATFORMS:
 # Unicode support (HAVE_USABLE_WCHAR_T PY_UNICODE_TYPE)
 
 
+def sanity_test(config):
+    code = """
+#include <stdio.h>
+int main() {
+    printf("hello, world.\\n");
+    return 0;
+}
+"""
+    return config.CheckCRuns("Hello world sanity test to see that the compiler and linker are ok... ", code)
+
+
 def check_double(config, name, encoding):
     code = """
 #include <string.h>
@@ -662,9 +673,15 @@ def configure():
             defines[key] = True
         return flag
 
+    configure_log = Dir(build_dir).File('configure.log')
     config = env.Configure(conf_dir=Dir(build_dir).Dir('.sconf_temp'),
-                           log_file=Dir(build_dir).File('configure.log'),
+                           log_file=configure_log,
                            custom_tests=confutils.get_custom_tests_dict())
+
+    # First thing first, let's do a sanity test and see if the compiler and linker (and their flags) can compile and
+    # link successfully (i.e. the user didn't pass options that the compiler/linker don't know about).
+    if not sanity_test(config):
+        raise Exception("Compiler/linker sanity test failed, check {} for more details.".format(configure_log.abspath))
 
     # Check if MINIX:
     if config.CheckHeader('minix/config.h'):
