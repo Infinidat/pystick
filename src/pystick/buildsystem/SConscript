@@ -14,6 +14,15 @@ env = SConscript('vars.scons', exports='env')
 vars.Update(env, ARGUMENTS)
 env.MergeFlags(env['XFLAGS'])
 
+def ar_command(target, source, env):
+    from response_file import gen_rsp_file
+    path = target[0].abspath + ".rsp"
+    gen_rsp_file([File(path)],  source, env)
+    from SCons.Action import CommandAction
+    act = CommandAction("$AR $ARFLAGS $TARGET @{}".format(path))
+    return act.execute(target, source, env)
+env['ARCOM'] = ar_command
+
 
 if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     print("Using Python sources from {}".format(env.Dir('$PYTHON_SOURCE_PATH').abspath))
@@ -44,6 +53,7 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     # build standard C modules:
     standard_python_c_modules = env.SConscript('standard_c_modules.scons', **default_sconscript_kwargs)
 
+    # FIXME external C modules should not be linked into python.bare
     # use list of external modules:
     if env.get('EXTERNAL_C_MODULES_FILE'):
         external_python_c_modules = env.SConscript('external_c_modules.scons', **default_sconscript_kwargs)
@@ -74,6 +84,7 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
 
     # Pack a full Python library that can later be used by other projects
     libfullpython = SConscript('libfullpython.scons', **default_sconscript_kwargs)
+    Alias('libfullpython', libfullpython)
     default_sconscript_kwargs['exports'] += ' libfullpython'
 
     # Create a full python executable for fun and games

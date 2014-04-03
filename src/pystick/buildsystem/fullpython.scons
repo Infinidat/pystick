@@ -2,6 +2,7 @@ Import("env libfullpython freeze_modules")
 env = env.Clone()
 env.VariantDir("python", "#python", duplicate=False)  # FIXME create a #python_build variant in the root and use that
 
-fullpython = env.Program('python.full', ['python/Modules/python.c', 'modules/config.c'] + freeze_modules + env['PYTHON_MODULES'] + libfullpython)
+all_objects = ['python/Modules/python.c', 'modules/config.c'] + env['PYTHON_MODULES'] + libfullpython
+fullpython = env.Program('python.full', all_objects)
 
 Return('fullpython')
