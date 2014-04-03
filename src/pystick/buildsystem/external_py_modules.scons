@@ -55,6 +55,8 @@ for module_params in module_list:
     else:
         package, module_name = '', name
 
-    freeze_modules.append(freeze_file(env, env.Dir('freezer'), source, package, module_name, frozen_modules, depends))
+    freezed_file = freeze_file(env, env.Dir('freezer'), source, package, module_name, frozen_modules, depends)
+    if freezed_file:
+        freeze_modules.append(freezed_file)
 
 Return('freeze_modules')
