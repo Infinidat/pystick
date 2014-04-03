@@ -98,7 +98,7 @@ if is_posix:
 
     if is_darwin:
         # TODO note that if we're doing a static build, these frameworks have to be added to the executable build flags.
-        env.AddPythonModule('_scproxy', 'Mac/#python/Modules/_scproxy.c', 'systemconfiguration',
+        env.AddPythonModule('_scproxy', '#python/Mac/Modules/_scproxy.c', 'systemconfiguration',
                             append_env=dict(LDFLAGS='-framework CoreFoundation -framework SystemConfiguration'))
 
         # TODO: we have several other OSX modules that Python's setup.py builds
