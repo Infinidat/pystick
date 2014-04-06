@@ -21,7 +21,10 @@ def ar_command(target, source, env):
     from SCons.Action import CommandAction
     act = CommandAction("$AR $ARFLAGS $TARGET @{}".format(path))
     return act.execute(target, source, env)
-env['ARCOM'] = ar_command
+
+if env['PLATFORM'].lower() in ('posix', 'linux', 'win32'):
+    # We create a response file (a file with all the list of objects) so it won't pass the max arg len limit
+    env['ARCOM'] = ar_command
 
 
 if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
