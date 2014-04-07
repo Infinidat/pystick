@@ -22,7 +22,7 @@ def ar_command(target, source, env):
     act = CommandAction("$AR $ARFLAGS $TARGET @{}".format(path))
     return act.execute(target, source, env)
 
-if env['PLATFORM'].lower() in ('posix', 'linux', 'win32'):
+if env['PLATFORM'].lower() in ('posix', 'linux'):
     # We create a response file (a file with all the list of objects) so it won't pass the max arg len limit
     env['ARCOM'] = ar_command
 
@@ -44,6 +44,8 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
 
     # Add Python's (mounted) Include directory to our include path.
     env.Append(CPPPATH=['#python/Include', '$BUILD_PATH'])
+    if env['PLATFORM'] == 'win32':
+        env.Append(CPPPATH=['#python/PC'])
 
     # # These kwargs will get passed to child scripts (less typing):
     default_sconscript_kwargs = dict(exports='env pyconfig_defines', variant_dir=env.Dir('$BUILD_PATH'), duplicate=False)
@@ -64,18 +66,22 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
 
     # Create Modules/config.c with all the C modules
     env.AppendPythonModulesConfiguration(standard_python_c_modules)
-    config_c = SConscript('finalize_c_modules.scons', **default_sconscript_kwargs)
-    default_sconscript_kwargs['exports'] += ' config_c'
+    config_o = SConscript('finalize_c_modules.scons', **default_sconscript_kwargs)
+    default_sconscript_kwargs['exports'] += ' config_o'
 
     # Create a libpython that contains all the core python code.
     libpython, libpython_objects = env.SConscript('libpython.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' libpython libpython_objects'
 
+    # python.o is shared both by "bare bones" python and "full" python.
+    python_o = SConscript("standalone_python.scons", **default_sconscript_kwargs)
+    default_sconscript_kwargs['exports'] += ' python_o'
+
     # Create a "bare bones" Python that doesn't freeze any module, and also _sysconfigdata.py files.
     bare_python = SConscript('barepython.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' bare_python'
 
-    # # Freeze Python's stdlib modules:
+    # Freeze Python's stdlib modules:
     freeze_modules = SConscript("freeze_stdlib.scons", **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' freeze_modules'
 

@@ -100,15 +100,17 @@ LIBPYTHON_BASE_SOURCE_LIST = [
 
 Import("env pyconfig_defines")
 
-env = env.Clone(CPPFLAGS='-DPy_BUILD_CORE')
- # This line, although it looks silly it actaully causes SCons to create all object files under our BUILD_PATH/python:
+env = env.Clone()
+env.Append(CPPDEFINES=['Py_BUILD_CORE'])
+# This line, although it looks silly it actaully causes SCons to create all object files under our BUILD_PATH/python:
+# TODO merge this for several sconscripts that need it (see barepython.scons for example).
 env.VariantDir("python", "#python", duplicate=False)
 
 libpython_objects = []
 
 if env.get('PYTHON_DYNLOAD_FILE', None):
     dynloadfile = env['PYTHON_DYNLOAD_FILE']
-elif env['PLATFORM'] != 'win32':
+else:
     # UNIX platforms
     # FIXME the following defines should be set for getpath.c:
     # - PYTHONPATH
@@ -121,32 +123,36 @@ elif env['PLATFORM'] != 'win32':
         dynloadfile = 'dynload_beos.c'
     elif env['PLATFORM'] == 'hp':
         dynloadfile = 'dynload_hpux.c'
+    elif env['PLATFORM'] == 'win32':
+        dynloadfile = 'dynload_win.c'
     elif 'HAVE_DLOPEN' in pyconfig_defines:
         dynloadfile = 'dynload_shlib.c'
     else:
         dynloadfile = 'dynload_stub.c'
 
-    getpath_env = env.Clone()
-    getpath_defines = []
-    if env.get('GETPATH_PYTHONPATH', None) is not None:
-        getpath_defines.append(r'PYTHONPATH=\"{}\"'.format(env['GETPATH_PYTHONPATH']))
-    if env.get('GETPATH_VERSION', None) is not None:
-        getpath_defines.append(r'VERSION=\"{}\"'.format(env['GETPATH_VERSION']))
-    if env.get('GETPATH_EXEC_PREFIX', None) is not None:
-        getpath_defines.append(r'EXEC_PREFIX=\"{}\"'.format(env['GETPATH_EXEC_PREFIX']))
-    if env.get('GETPATH_PREFIX', None) is not None:
-        getpath_defines.append(r'PREFIX=\"{}\"'.format(env['GETPATH_PREFIX']))
-    if env.get('GETPATH_LANDMARK', None) is not None:
-        getpath_defines.append(r'LANDMARK=\"{}\"'.format(env['GETPATH_LANDMARK']))
 
-    getpath_env.Append(CPPDEFINES=getpath_defines)
-    getpath_o = getpath_env.Object('python/Modules/getpath.c')
-    dynload_o = env.Object("python/Python/{}".format(dynloadfile))
-    libpython_objects.extend([getpath_o, dynload_o])
-else:
-    # FIXME win32
-    pass
+getpath_env = env.Clone()
+getpath_defines = []
+if env.get('GETPATH_PYTHONPATH', None) is not None:
+    getpath_defines.append(r'PYTHONPATH=\"{}\"'.format(env['GETPATH_PYTHONPATH']))
+if env.get('GETPATH_VERSION', None) is not None:
+    getpath_defines.append(r'VERSION=\"{}\"'.format(env['GETPATH_VERSION']))
+if env.get('GETPATH_EXEC_PREFIX', None) is not None:
+    getpath_defines.append(r'EXEC_PREFIX=\"{}\"'.format(env['GETPATH_EXEC_PREFIX']))
+if env.get('GETPATH_PREFIX', None) is not None:
+    getpath_defines.append(r'PREFIX=\"{}\"'.format(env['GETPATH_PREFIX']))
+if env.get('GETPATH_LANDMARK', None) is not None:
+    getpath_defines.append(r'LANDMARK=\"{}\"'.format(env['GETPATH_LANDMARK']))
 
+getpath_env.Append(CPPDEFINES=getpath_defines)
+getpath_o = getpath_env.Object('python/Modules/getpath.c' if env['PLATFORM'] != 'win32' else 'python/PC/getpathp.c')
+dynload_o = env.Object("python/Python/{}".format(dynloadfile))
+libpython_objects.extend([getpath_o, dynload_o])
+
+if env['PLATFORM'] == 'win32':
+    import_nt_env = env.Clone()
+    import_nt_env.Append(CPPPATH='python/Python')
+    libpython_objects.append(import_nt_env.Object('python/PC/import_nt.c'))
 
 libpython_objects.extend(env.Object(source) for source in LIBPYTHON_BASE_SOURCE_LIST)
 libpython = env.Library('python27', libpython_objects)

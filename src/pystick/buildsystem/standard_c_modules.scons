@@ -14,6 +14,9 @@ is_mingw = env['PLATFORM'] == 'mingw'
 is_darwin = env['PLATFORM'] == 'darwin'
 is_linux = env['PLATFORM'] == 'linux2'
 
+is_32bit = env['TARGET_ARCH'] == 'x86'
+is_64bit = env['TARGET_ARCH'] == 'amd64'
+
 add_python_module_funcs_to_env(env)
 
 env.AddPythonModule('_codecs', '#python/Modules/_codecsmodule.c')
@@ -170,10 +173,30 @@ elif is_win32:
                         '#python/Modules/_multiprocessing/win32_functions.c'
                         ], env.RequiredLibsPredicate('ws2_32'))
     env.AddPythonModule('select', '#python/Modules/selectmodule.c', env.RequiredLibsPredicate('ws2_32'))
-    env.AddPythonModule('_socket' ['#python/Modules/socketmodule.c', '#python/Modules/timemodule.c'],
+    env.AddPythonModule('_socket', ['#python/Modules/socketmodule.c', '#python/Modules/timemodule.c'],
                         env.RequiredLibsPredicate('ws2_32'))
 
-    if is_mingw:
+    if not is_mingw:
+        sources = ['#python/Modules/_ctypes/_ctypes.c',
+                   '#python/Modules/_ctypes/callbacks.c',
+                   '#python/Modules/_ctypes/callproc.c',
+                   '#python/Modules/_ctypes/cfield.c',
+                   '#python/Modules/_ctypes/stgdict.c',
+                   '#python/Modules/_ctypes/libffi/src/closures.c',
+                   # Don't compile this as it's included by closures.c and not meant to be compiled
+                   # '#python/Modules/_ctypes/libffi/src/dlmalloc.c',
+                   '#python/Modules/_ctypes/libffi_msvc/ffi.c',
+                   '#python/Modules/_ctypes/libffi_msvc/prep_cif.c']
+        if is_32bit:
+            sources.append('#python/Modules/_ctypes/libffi_msvc/win32.c')
+        else:
+            sources.append('#python/Modules/_ctypes/libffi_msvc/win64.asm')
+
+        env.AddPythonModule('_ctypes', sources,
+                            append_env=dict(CPPPATH=['#python/Modules/_ctypes/libffi_msvc'],
+                                            LINKFLAGS=['/EXPORT:DllGetClassObject,PRIVATE',
+                                                       '/EXPORT:DllCanUnloadNow,PRIVATE']))
+    else:
         # FIXME: mingw
         # TODO
         #         INCLUDEDIRS ${SRC_DIR}/#python/Modules/_ctypes/libffi/src/x86
@@ -191,23 +214,27 @@ elif is_win32:
         #                 _ctypes/libffi_mingw/x86/ffi.c
         #                 _ctypes/libffi_mingw/x86/win32.S
         #                 _ctypes/stgdict.c
-        pass
-    else:
-        # FIXME ???
-        pass
+        raise Exception("mingw support not implemented yet")
 
 if env.get('HAVE_LIBEXPAT'):
     env.AddPythonModule('pyexpat', ['#python/Modules/pyexpat.c'], env.RequiredLibsPredicate('expat'))
     env.AddPythonModule('_elementtree', ['#python/Modules/_elementtree.c'], env.RequiredLibsPredicate('expat'))
 else:
-    # Order is important here so they'll pyexpat will end up after_elementtree if static.
     env.AddPythonModule('_elementtree', ['#python/Modules/_elementtree.c'],
                         append_env=dict(CPPDEFINES='USE_PYEXPAT_CAPI', CPPPATH='#python/Modules/expat'))
+    if is_win32:
+        cppdefines = ["PYEXPAT_EXPORTS", "HAVE_EXPAT_H", "XML_NS", "XML_DTD", "BYTEORDER=1234", "XML_CONTEXT_BYTES=1024",
+                      "XML_STATIC", "HAVE_MEMMOVE"]
+    else:
+        cppdefines = ["HAVE_EXPAT_CONFIG_H"]
+
+    # Order is important here so they'll pyexpat will end up after_elementtree if static.
     env.AddPythonModule('pyexpat', ['#python/Modules/pyexpat.c',
                                     '#python/Modules/expat/xmlparse.c',
                                     '#python/Modules/expat/xmlrole.c',
                                     '#python/Modules/expat/xmltok.c'],
-                        append_env=dict(CPPDEFINES='HAVE_EXPAT_CONFIG_H', CPPPATH='#python/Modules/expat'))
+                        append_env=dict(CPPDEFINES=cppdefines, CPPPATH='#python/Modules/expat'))
+
 
 if env.get('HAVE_OPENSSL'):
     append_env = dict()

@@ -1,3 +1,4 @@
+import re
 from os import path
 from freezer import freeze_dir, freeze_file
 from bare_python import add_bare_python_to_env
@@ -10,7 +11,7 @@ add_bare_python_to_env(env)
 exclude_list = [r'plat\-*',  # will include the specific platform in include_list
                 r'site-packages',
                 r'^tests?$',
-                r'^.*/tests?$']
+                r'^.*' + re.escape(path.sep) + r'tests?$']
 # FIXME platform specific
 include_list = [r'plat-linux2', r'platform']
 

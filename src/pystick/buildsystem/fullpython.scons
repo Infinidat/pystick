@@ -1,8 +1,12 @@
-Import("env libfullpython freeze_modules")
+Import("env libfullpython freeze_modules python_o config_o")
 env = env.Clone()
 env.VariantDir("python", "#python", duplicate=False)  # FIXME create a #python_build variant in the root and use that
 
-all_objects = ['python/Modules/python.c', 'modules/config.c'] + env['PYTHON_MODULES'] + libfullpython
-fullpython = env.Program('python.full', all_objects)
+if env['PLATFORM'] == 'win32':
+    env.Append(LIBS=['advapi32.lib', 'shell32.lib', 'user32.lib', 'oleaut32.lib', 'ole32.lib'])
+
+sources = [config_o] + python_o + env['PYTHON_MODULES'] + [libfullpython]
+
+fullpython = env.Program('python_full', sources)
 
 Return('fullpython')

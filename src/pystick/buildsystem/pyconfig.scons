@@ -9,5 +9,9 @@ def create_pyconfig_subst_dict():
     result.append((r"(#\s*undef [^\n]*)\n", r"/* \1 */\n"))
     return result
 
-pyconfig = env.Substfile('pyconfig.h', '#python/pyconfig.h.in', SUBST_DICT=create_pyconfig_subst_dict())
+if env['PLATFORM'] != 'win32':
+    pyconfig = env.Substfile('pyconfig.h', '#python/pyconfig.h.in', SUBST_DICT=create_pyconfig_subst_dict())
+else:
+    pc_pyconfig = env.Command('PC/pyconfig.h', '#pyconfig.h.win32', Copy("$TARGET", "$SOURCE"))
+    pyconfig = env.Command('pyconfig.h', pc_pyconfig, Copy("$TARGET", "$SOURCE"))
 Return('pyconfig')

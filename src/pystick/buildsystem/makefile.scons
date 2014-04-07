@@ -62,7 +62,8 @@ def create_makefile_defines():
     d['@PYTHONFRAMEWORKINSTALLDIR@'] = ''  # FIXME
     d['@PYTHONFRAMEWORKPREFIX@'] = ''  # FIXME
     d['@PYTHON_FOR_BUILD@'] = ''  # FIXME
-    d['@RANLIB@'] = env['RANLIB']
+    if 'RANLIB' in env:
+        d['@RANLIB@'] = env['RANLIB']
     d['@RUNSHARED@'] = ''  # FIXME
     d['@RUNSHARED@'] = ''  # FIXME
     d['@SGI_ABI@'] = ''  # FIXME

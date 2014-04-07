@@ -42,12 +42,16 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
     build_env = env.Clone()
     if append_env:
         build_env.Append(**append_env)
+
+    if not is_shared:
+        build_env.Append(CPPDEFINES='Py_NO_ENABLE_SHARED')
     obj_builder = build_env.SharedObject if is_shared or is_pic else build_env.StaticObject
 
     # We map each source to (perhaps variant dir)/modules/obj/full/path/to/source
     # so we won't conflict when several modules (perhaps external) have the same file names.
     def source_to_obj_path(source):
         d, p = os.path.splitdrive(env.File(source).abspath)  # on Windows, get the drive first
+        d = d.replace(':', '')  # remove ':' from the drive
         p, _ = os.path.splitext(p)  # Remove the extension (i.e. '.c')
         parts = [e for e in ('modules', 'obj', d, p) if e]
         return os.path.sep.join([part[len(os.path.sep):] if part.startswith(os.path.sep) else part for part in parts])

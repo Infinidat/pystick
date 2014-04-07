@@ -10,4 +10,7 @@ config_c_subst = {r'/\* -- ADDMODULE MARKER 1 -- \*/': init_func_prototypes,
 
 config_c = env.Substfile('modules/config.c', '#python/Modules/config.c.in', SUBST_DICT=config_c_subst)
 
-Return("config_c")
+# We use SharedObject to force fPIC here since it can't hurt and we use it for shared objects as well as libs.
+config_o = env.SharedObject(config_c)
+
+Return("config_o")

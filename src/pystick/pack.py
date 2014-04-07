@@ -7,10 +7,11 @@ def relative_path_to_abspath(path):
     return os.path.abspath(path) if not os.path.isabs(path) else path
 
 
-def fix_flag(flag):
+def fix_assign_flag(flag):
     if flag.find('=') != -1:
         key, val = flag.split('=', 1)
-        if key in ('BUILD_PATH', 'PYTHON_SOURCE_PATH', 'EXTERNAL_C_MODULES_FILE', 'EXTERNAL_PY_MODULES_FILE'):
+        if key in ('BUILD_PATH', 'PYTHON_SOURCE_PATH', 'EXTERNAL_C_MODULES_FILE', 'EXTERNAL_PY_MODULES_FILE',
+                   '--defaultenv'):
             abspath = relative_path_to_abspath(val)
             if abspath != val:
                 print("setting {} to {}".format(key, abspath))
@@ -19,8 +20,14 @@ def fix_flag(flag):
 
 
 def fix_flags(flags):
-    return [fix_flag(flag) for flag in flags]
-
+    args = [fix_assign_flag(flag) for flag in flags]
+    for i, arg in enumerate(args):
+        if arg == '--defaultenv':
+            abspath = relative_path_to_abspath(args[i + 1])
+            print("setting {} to {}".format(args[i + 1], abspath))
+            args[i + 1] = abspath
+            break
+    return args
 
 def main(argv=sys.argv[1:]):
     sconsflags = os.environ.get('SCONSFLAGS', '')

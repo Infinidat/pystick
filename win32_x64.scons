@@ -1,0 +1,13 @@
+from SCons.Tool.MSCommon import vc
+def find_batch_file(env, msvc_version, host_arch, target_arch):
+    return (r"C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\bin\vcvars64.bat", None)
+vc.find_batch_file = find_batch_file
+
+env = DefaultEnvironment(PLATFORM='win32',
+                         TOOLS=['msvc', 'mslink', 'masm', 'mslib', 'msvs'],
+                         AS=r'"C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\bin\amd64\ml64.exe"',
+                         MSVC_VERSION='9.0',
+                         PROCESSOR_ARCHITECTURE='amd64',
+                         HOST_ARCH='amd64',
+                         TARGET_ARCH='amd64',
+                         CPPDEFINES='WIN32')
