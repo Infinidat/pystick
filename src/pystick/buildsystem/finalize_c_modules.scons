@@ -3,8 +3,8 @@ Import("env")
 env = env.Clone(tools=["textfile"])
 
 init_module_funcs = env['STATIC_PYTHON_MODULE_INIT_FUNCS']
-init_func_prototypes = "\n".join("extern void init{}(void);".format(name) for name in init_module_funcs)
-init_func_refs = "\n".join('{ "%(name)s", init%(name)s },' % dict(name=name) for name in init_module_funcs)
+init_func_prototypes = "\n".join("extern void init{}(void);".format(name.split('.')[-1]) for name in init_module_funcs)
+init_func_refs = "\n".join('{ "%(name)s", init%(rename)s },' % dict(name=name, rename=name.split('.')[-1]) for name in init_module_funcs)
 config_c_subst = {r'/\* -- ADDMODULE MARKER 1 -- \*/': init_func_prototypes,
                   r'/\* -- ADDMODULE MARKER 2 -- \*/': init_func_refs}
 
