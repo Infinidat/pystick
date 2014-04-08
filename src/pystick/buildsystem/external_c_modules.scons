@@ -52,6 +52,7 @@ import json
 from modules import add_python_module_funcs_to_env, name_to_mangled
 
 Import('env')
+env = env.Clone()
 add_python_module_funcs_to_env(env)
 
 with open(env.File(env['EXTERNAL_C_MODULES_FILE']).abspath, "r") as f:
