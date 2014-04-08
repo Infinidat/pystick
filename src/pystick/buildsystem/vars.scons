@@ -126,4 +126,10 @@ env.AddPythonModuleVars(vars, '_sqlite3', requires_desc='HAVE_LIBSQLITE3')
 env.AddPythonModuleVars(vars, '_tkinter', requires_desc='HAVE_LIBTK and HAVE_LIBTCL')
 env.AddPythonModuleVars(vars, 'zlib', requires_desc='HAVE_LIBZ')
 
+vars_env = Environment()
+vars.Update(vars_env, ARGUMENTS)
+for key in vars.keys():
+    if key not in env:
+        env[key] = vars_env.get(key, None)
+
 Return("env")
