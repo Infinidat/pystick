@@ -1,4 +1,7 @@
-Import("env libpython_objects freeze_modules config_o")
+Import("env libpython_objects freeze_modules")
+
+config_c_path = 'fullpython/config.c'
+config_o = SConscript('config_c.scons', exports='env config_c_path')
 
 all_objects = libpython_objects + freeze_modules + [config_o] + env.get('STATIC_PYTHON_MODULE_OBJECTS', [])
 libfullpython = env.Library('fpython27', all_objects)

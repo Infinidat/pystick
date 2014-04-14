@@ -1,4 +1,4 @@
-Import("env")
+Import("env config_c_path")
 
 env = env.Clone(tools=["textfile"])
 
@@ -8,7 +8,7 @@ init_func_refs = "\n".join('{ "%(name)s", init%(rename)s },' % dict(name=name, r
 config_c_subst = {r'/\* -- ADDMODULE MARKER 1 -- \*/': init_func_prototypes,
                   r'/\* -- ADDMODULE MARKER 2 -- \*/': init_func_refs}
 
-config_c = env.Substfile('modules/config.c', '#python/Modules/config.c.in', SUBST_DICT=config_c_subst)
+config_c = env.Substfile(config_c_path, '#python/Modules/config.c.in', SUBST_DICT=config_c_subst)
 
 # We use SharedObject to force fPIC here since it can't hurt and we use it for shared objects as well as libs.
 config_o = env.SharedObject(config_c)

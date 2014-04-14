@@ -59,16 +59,8 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     # build standard C modules:
     standard_python_c_modules = env.SConscript('standard_c_modules.scons', **default_sconscript_kwargs)
 
-    # FIXME external C modules should not be linked into python.bare
-    # use list of external modules:
-    if env.get('EXTERNAL_C_MODULES_FILE'):
-        external_python_c_modules = env.SConscript('external_c_modules.scons', **default_sconscript_kwargs)
-        env.AppendPythonModulesConfiguration(external_python_c_modules)
-
     # Create Modules/config.c with all the C modules
     env.AppendPythonModulesConfiguration(standard_python_c_modules)
-    config_o = SConscript('finalize_c_modules.scons', **default_sconscript_kwargs)
-    default_sconscript_kwargs['exports'] += ' config_o'
 
     # Create a libpython that contains all the core python code, but doesn't include any static C modules or config.c.
     libpython, libpython_objects = env.SConscript('libpython.scons', **default_sconscript_kwargs)
@@ -85,6 +77,10 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     # Freeze Python's stdlib modules:
     freeze_modules = SConscript("freeze_stdlib.scons", **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' freeze_modules'
+
+    if env.get('EXTERNAL_C_MODULES_FILE'):
+        external_python_c_modules = env.SConscript('external_c_modules.scons', **default_sconscript_kwargs)
+        env.AppendPythonModulesConfiguration(external_python_c_modules)
 
     if env.get('EXTERNAL_PY_MODULES_FILE'):
         freeze_modules = env.SConscript('external_py_modules.scons', **default_sconscript_kwargs)
