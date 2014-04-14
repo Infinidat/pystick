@@ -102,10 +102,6 @@ Import("env pyconfig_defines")
 
 env = env.Clone()
 env.Append(CPPDEFINES=['Py_BUILD_CORE'])
-# This line, although it looks silly it actaully causes SCons to create all object files under our BUILD_PATH/python:
-# TODO merge this for several sconscripts that need it (see barepython.scons for example).
-env.VariantDir("python", "#python", duplicate=False)
-
 libpython_objects = []
 
 if env.get('PYTHON_DYNLOAD_FILE', None):

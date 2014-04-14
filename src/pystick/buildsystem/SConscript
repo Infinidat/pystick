@@ -37,6 +37,8 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     # Mount Python sources under our project root and make sure all targets that come from these sources go to
     # our build directory.
     env.Dir('#python').addRepository(env.Dir('$PYTHON_SOURCE_PATH'))
+    # Now create point all build artifcats from the Python source tree to $BUILD_PATH/python
+    env.VariantDir('$BUILD_PATH/python', '#python')
 
     # Run our configure-equivalent code so we can create pyconfig.h, Makefile, etc.
     env, pyconfig_defines = env.SConscript('configure.scons', exports='env')
@@ -68,7 +70,7 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     config_o = SConscript('finalize_c_modules.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' config_o'
 
-    # Create a libpython that contains all the core python code.
+    # Create a libpython that contains all the core python code, but doesn't include any static C modules or config.c.
     libpython, libpython_objects = env.SConscript('libpython.scons', **default_sconscript_kwargs)
     default_sconscript_kwargs['exports'] += ' libpython libpython_objects'
 

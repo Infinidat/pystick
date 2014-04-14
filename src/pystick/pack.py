@@ -36,6 +36,8 @@ def main(argv=sys.argv[1:]):
 
     sys.argv[1:] = fix_flags(argv)
 
+    sys.argv.append('--warn=no-duplicate-environment')
+
     buildsystem_path = pkg_resources.resource_filename(__name__, "buildsystem")
     os.chdir(buildsystem_path)
     import SCons.Script
