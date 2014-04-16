@@ -96,5 +96,10 @@ for module_params in module_list:
 
     env.AddPythonModule(name, rel_sources, append_env=append_env, depends=depends)
 
+if module_list:
+    env['WITH_PYTHON_MODULE_FREEZE_EXTERNAL_MODULES'] = True
+    env['STATIC_PYTHON_MODULE_FREEZE_EXTERNAL_MODULES'] = True
+    env.AddPythonModule('freeze_external_modules', ['freeze_external_modules.c'], requirements=True)
+
 python_modules = env.GetPythonModulesConfiguration()
 Return('python_modules')

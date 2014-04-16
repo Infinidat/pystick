@@ -1,4 +1,5 @@
 import os.path
+import functools
 from SCons.Script import *
 
 
@@ -116,7 +117,7 @@ def add_python_module(env, name, sources, requirements=True, append_env=None, de
         is_pic = is_shared
 
     if requirements:
-        add_module(env, name, is_shared, is_pic, sources, append_env)
+        add_module(env, name, is_shared, is_pic, sources, append_env, depends)
 
 
 def add_python_module_vars(env, vars, name, enabled=True, can_be_shared=True, requires_desc=None):
