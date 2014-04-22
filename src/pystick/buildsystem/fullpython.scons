@@ -5,7 +5,7 @@ env.VariantDir("python", "#python", duplicate=False)  # FIXME create a #python_b
 if env['PLATFORM'] == 'win32':
     env.Append(LIBS=['advapi32.lib', 'shell32.lib', 'user32.lib', 'oleaut32.lib', 'ole32.lib'])
 
-sources = python_o + env['PYTHON_MODULES'] + [libfullpython]
+sources = python_o + env['SHARED_PYTHON_MODULE_LIBS'] + [libfullpython]
 
 fullpython = env.Program('python_full', sources)
 

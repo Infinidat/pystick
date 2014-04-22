@@ -22,17 +22,19 @@ def are_python_modules_shared(env):
 
 def get_python_modules_configuration(env):
     return dict(
-        PYTHON_MODULES=env.get('PYTHON_MODULES', []),
+        PYTHON_MODULE_LIBS=env.get('PYTHON_MODULE_LIBS', []),
+        SHARED_PYTHON_MODULE_LIBS=env.get('SHARED_PYTHON_MODULE_LIBS', []),
+        STATIC_PYTHON_MODULE_LIBS=env.get('STATIC_PYTHON_MODULE_LIBS', []),
         STATIC_PYTHON_MODULE_INIT_FUNCS=env.get('STATIC_PYTHON_MODULE_INIT_FUNCS', []),
-        STATIC_PYTHON_MODULE_NAMES=env.get('STATIC_PYTHON_MODULE_NAMES', []),
         STATIC_PYTHON_MODULE_OBJECTS=env.get('STATIC_PYTHON_MODULE_OBJECTS', [])
     )
 
 
 def append_python_modules_configuration(env, conf):
-    env.Append(PYTHON_MODULES=conf['PYTHON_MODULES'],
+    env.Append(PYTHON_MODULE_LIBS=conf['PYTHON_MODULE_LIBS'],
+               SHARED_PYTHON_MODULE_LIBS=conf['SHARED_PYTHON_MODULE_LIBS'],
+               STATIC_PYTHON_MODULE_LIBS=conf['STATIC_PYTHON_MODULE_LIBS'],
                STATIC_PYTHON_MODULE_INIT_FUNCS=conf['STATIC_PYTHON_MODULE_INIT_FUNCS'],
-               STATIC_PYTHON_MODULE_NAMES=conf['STATIC_PYTHON_MODULE_NAMES'],
                STATIC_PYTHON_MODULE_OBJECTS=conf['STATIC_PYTHON_MODULE_OBJECTS'])
 
 
@@ -81,16 +83,17 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
     if is_shared:
         build_env.Replace(SHLIBPREFIX='')  # shared lib modules don't need a 'lib' prefix, FIXME also in OSX?
         mod = build_env.SharedLibrary(target=env.Dir('modules').File(name), source=objects)
+        env.Append(SHARED_PYTHON_MODULE_LIBS=[mod])
     else:
         mod = build_env.StaticLibrary(target=env.Dir('modules').File(env['LIBPREFIX'] + name + env['LIBSUFFIX']),
                                       source=objects)
+        env.Append(STATIC_PYTHON_MODULE_LIBS=[mod])
         env.Append(STATIC_PYTHON_MODULE_INIT_FUNCS=[name])
-        env.Append(STATIC_PYTHON_MODULE_NAMES=[mod])
         # We only add to STATIC_PYTHON_MODULE_OBJECTS unique object files (ones that weren't added by other libs)
         prev_objs = set(str(n) for n in env.get('STATIC_PYTHON_MODULE_OBJECTS', []))
         new_objs = [obj for obj in objects if str(obj) not in prev_objs]
         env.Append(STATIC_PYTHON_MODULE_OBJECTS=new_objs)
-    env.Append(PYTHON_MODULES=[mod])
+    env.Append(PYTHON_MODULE_LIBS=[mod])
 
 
 def add_python_module(env, name, sources, requirements=True, append_env=None, depends=[]):
