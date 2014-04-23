@@ -73,10 +73,17 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
         drive_part, path_part = os.path.splitdrive(env.File(source).abspath)  # on Windows, get the drive first
         drive_part = drive_part.replace(':', '')  # remove ':' from the drive
         path_part, _ = os.path.splitext(path_part)  # Remove the extension (i.e. '.c')
+        path_part, fname = os.path.split(path_part)
 
+        obj_fname = "{}{}{}".format(env['SHOBJPREFIX' if is_shared else 'OBJPREFIX'], fname,
+                                    env['SHOBJSUFFIX' if is_shared else 'OBJSUFFIX'])
+
+        # remove empty path parts
         parts = filter(bool, ('modules', 'obj.{}'.format('shared' if is_shared else 'static'), drive_part, path_part,
-                              env['SHOBJSUFFIX'] if is_shared else env['OBJSUFFIX']))
-        return os.path.sep.join([part[len(os.path.sep):] if part.startswith(os.path.sep) else part for part in parts])
+                              obj_fname))
+        # remove leading path separators from components
+        parts = [p[len(os.path.sep):] if p.startswith(os.path.sep) else p for p in parts]
+        return os.path.sep.join(parts)
 
     objects = [obj_builder(target=source_to_obj_path(source), source=source) for source in sources]
 
