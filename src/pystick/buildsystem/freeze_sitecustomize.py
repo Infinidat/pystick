@@ -44,8 +44,10 @@ class ModuleImporter(object):
                 mod = imp.new_module(fullname)
                 if '__builtins__' not in mod.__dict__:
                     mod.__dict__['__builtins__'] = __builtins__
+                mod.__file__ = "frozen/" + "/".join(fullname.split('.'))
                 if is_package:
                     mod.__path__ = fullname
+                    mod.__file__ = mod.__file__ + "/__init__"
                 sys.modules[fullname] = mod
                 eval(co, mod.__dict__, mod.__dict__)
                 return mod
