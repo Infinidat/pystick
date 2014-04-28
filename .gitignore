@@ -54,3 +54,5 @@ buildout.in
 
 src/pystick/__version__.py
 bootstrap.py
+.cache
+eggs
