@@ -1,0 +1,46 @@
+STATIC_BUILD_LIBS = [
+    File('/usr/lib/x86_64-linux-gnu/libm.a'),
+    File('/usr/lib/x86_64-linux-gnu/libz.a'),
+    File('/usr/lib/x86_64-linux-gnu/libncurses.a'),
+    File('/usr/lib/x86_64-linux-gnu/libreadline.a'),
+    File('/usr/lib/x86_64-linux-gnu/libtermcap.a'),
+    File('/usr/lib/x86_64-linux-gnu/libcrypt.a'),
+    File('/usr/lib/x86_64-linux-gnu/libnsl.a'),
+    File('/usr/lib/x86_64-linux-gnu/libssl.a'),
+    File('/usr/lib/x86_64-linux-gnu/libcrypto.a'),
+    # File('/usr/lib/x86_64-linux-gnu/libpthread.a'),
+    File('/usr/lib/x86_64-linux-gnu/libutil.a'),
+    'dl',
+]
+SHARED_BUILD_LIBS = ['m', 'z', 'curses', 'readline', 'termcap', 'crypt', 'nsl', 'ssl', 'pthread', 'dl', 'util']
+
+COMMON_BUILD_CCFLAGS = [
+    '-pthread',
+    '-g',
+    '-Wall',
+    '-Wstrict-prototypes',
+    '-fwrapv',
+    '-fno-strict-aliasing', '-DNDEBUG',
+    # FIXME: Don't do -O3 for now just so it'll run quicker...
+    #'-O3'
+]
+
+STATIC_BUILD_CCFLAGS = COMMON_BUILD_CCFLAGS + ['-fPIC']
+STATIC_BUILD_LINKFLAGS = ['-g', '-pthread']
+SHARED_BUILD_CCFLAGS = COMMON_BUILD_CCFLAGS
+
+env = Environment(
+    CCFLAGS=STATIC_BUILD_CCFLAGS,
+    LIBS=STATIC_BUILD_LIBS,
+    LINKFLAGS=STATIC_BUILD_LINKFLAGS,
+    SHARED_PYTHON_MODULES=False,
+    HAVE_LIBM=True,
+    HAVE_LIBZ=True,
+    HAVE_LIBNSL=True,
+    HAVE_LIBREADLINE=True,
+    HAVE_LIBCURSES=True,
+    HAVE_LIBCRYPT=True,
+    HAVE_OPENSSL=True,
+)
+
+SConscript('SConscript', exports='env')

@@ -1,0 +1,135 @@
+import cenv
+from modules import add_python_module_funcs_to_env
+
+Import("env")
+
+env = env.Clone()
+add_python_module_funcs_to_env(env)
+
+vars = cenv.get_global_variables()
+vars.AddVariables(
+    # Globals
+    PathVariable('PYTHON_SOURCE_PATH', 'where to find the Python source tree', None, PathVariable.PathIsDir),
+    PathVariable('BUILD_PATH', 'where to build', None, PathVariable.PathIsDirCreate),
+    ('XFLAGS', 'Manually add compiler/linker flags and libs', ''),
+    PathVariable('EXTERNAL_C_MODULES_FILE',
+                 'file in json format containing a list of external C modules that need to be added (read docs for further explanation)',
+                 None,
+                 PathVariable.PathIsFile),
+
+    PathVariable('EXTERNAL_PY_MODULES_FILE',
+                 'file in json format containing a list of external Python modules that need to be added (read docs for further explanation)',
+                 None,
+                 PathVariable.PathIsFile),
+
+    # Python hard coded configuration in getpath.c
+    ('GETPATH_PYTHONPATH', 'Set default PYTHONPATH to be compiled into Python', None),
+    ('GETPATH_VERSION', 'Set default VERSION to be compiled into Python', '2.7'),
+    ('GETPATH_PREFIX', 'Set default VERSION to be compiled into Python', None),
+    ('GETPATH_EXEC_PREFIX', 'Set default EXEC_PREFIX to be compiled into Python', None),
+    ('GETPATH_LANDMARK', 'Set default LANDMARK to be compiled into Python', None),
+
+    # Configure
+    BoolVariable('WITH_PYDEBUG', 'Set to enable pydebug', False),
+    BoolVariable('WITH_IPV6', 'Set to enable IPv6', True),
+    BoolVariable('WITH_UNICODE', 'Set to enable unicode support', True),
+    BoolVariable('WITH_DOC_STRINGS', 'Set to enable doc strings support', True),
+    BoolVariable('WITH_SHARED', 'Set to enable shared object support in Python code', True),
+    EnumVariable('UNICODE_SIZE', 'Set unicode size', '2', allowed_values=('2', '4')),
+    BoolVariable('WITH_PYMALLOC', 'Set to enable using pymalloc', True),
+    BoolVariable('WITH_VALGRIND', 'Set to enable valgrind in Python code', False),
+    BoolVariable('WITH_TSC', 'Set to enable TSC in Python code', False),
+    BoolVariable('WITH_THREAD', 'Set to enable threads in Python code', True),
+    BoolVariable('WITH_READLINE', 'Set to enable readline in Python code (also requires libreadline)', True),
+    BoolVariable('WITH_DL', 'Set to enable dl in Python code (also requires libdl)', True),
+    ('PYTHON_DYNLOAD_FILE', 'Set to manually specify which dynload file to use', None),
+    EnumVariable('DOUBLE_ENDIAN', 'Set to manually specify double endianness (for cross compiling)', 'auto',
+                 allowed_values=('auto', 'little', 'big', 'mixed')),
+
+    # Libraries
+    BoolVariable('HAVE_LIBZ', 'Set if you added libz to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBBZ2', 'Set if you added libbz2 to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBM', 'Set if you added libm to LIBS and the include directory to CPPFLAGS', True),
+    BoolVariable('HAVE_LIBNSL', 'Set if you added libnsl to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBCRYPT', 'Set if you added libcrypt to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBTCL', 'Set if you added libtcl to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBTK', 'Set if you added libtk to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBDB', 'Set if you added libdb to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBNDBM', 'Set if you addded libndbm to LIBS and the include directory to CPPFLAGS (WARNING: ndbm is broken, see Wikipedia)', False),
+    BoolVariable('HAVE_LIBGDBM', 'Set if you added libgdbm to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBSQLITE3', 'Set if you added libsqlite3 to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBEXPAT', 'Set if you added libexpat to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_OPENSSL', 'Set if you added OpenSSL (libssl and libcrypto) to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_CURSES', 'Set if you added libcurses or libncurses(w) to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_CURSES_PANEL', 'Set if you added libpanel(w) to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_READLINE', 'Set if you added libreadline to LIBS and the include directory to CPPFLAGS', False),
+
+    # Win32 specific libraries
+    BoolVariable('HAVE_LIBWS32_32', 'Set if you added Win32 libws32_32 to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBCABINET', 'Set if you added Win32 libcabinet to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBMSI', 'Set if you added Win32 libmsi to LIBS and the include directory to CPPFLAGS', False),
+    BoolVariable('HAVE_LIBRPCRT4', 'Set if you added Win32 librpcrt4 to LIBS and the include directory to CPPFLAGS', False),
+
+    # Modules
+    BoolVariable('SHARED_PYTHON_MODULES', 'Set to build all modules as shared (can be overridden per module)', None),
+    BoolVariable('STATIC_PYTHON_MODULES', 'Set to build all modules as static (can be overridden per module)', None),
+    BoolVariable('PIC_PYTHON_MODULES', 'Set to build all modules with -fPIC (can be overridden per module)', True),
+)
+
+# Builtin modules declaration
+for name in ('_codecs', 'errno', 'gc', 'signal', '_sre', '_symtable', 'thread', '_weakref', 'xxsubtype', 'zipimport'):
+    env.AddPythonModuleVars(vars, name, can_be_shared=False)
+
+
+env.AddPythonModuleVars(vars, 'posix', can_be_shared=False, requires_desc='not Win32')
+env.AddPythonModuleVars(vars, 'nt', can_be_shared=False, requires_desc='Win32')
+
+for name in ('array', 'audioop', '_bisect', '_codecs_cn', '_codecs_hk', '_codecs_iso2022', '_codecs_jp', '_codecs_kr',
+             '_codecs_tw', '_collections', 'cPickle', 'cStringIO', '_csv', '_functools',
+             'future_builtins', '_heapq', '_hotshot', '_io', 'itertools', '_json', '_locale', '_lsprof', 'math',
+             'mmap', '_multibytecodec', 'operator', 'parser', '_random', 'strop', '_struct', '_testcapi',
+             'unicodedata', 'binascii', '_multiprocessing', '_ctypes', 'pyexpat', '_elementtree'):
+    env.AddPythonModuleVars(vars, name)
+
+env.AddPythonModuleVars(vars, 'datetime', requires_desc='HAVE_LIBM')
+env.AddPythonModuleVars(vars, 'cmath', requires_desc='HAVE_LIBM')
+env.AddPythonModuleVars(vars, 'time', requires_desc='HAVE_LIBM')
+env.AddPythonModuleVars(vars, 'crypt', requires_desc='HAVE_LIBCRYPT')
+env.AddPythonModuleVars(vars, 'select', requires_desc='lib ws2_32 if Win32')
+env.AddPythonModuleVars(vars, '_socket', requires_desc='lib ws2_32 if Win32')
+env.AddPythonModuleVars(vars, '_ctypes_test', enabled=False)
+
+for name in ('_md5', '_sha', '_sha256', '_sha512'):
+    env.AddPythonModuleVars(vars, name, requires_desc='not HAVE_OPENSSL')
+env.AddPythonModuleVars(vars, '_hashlib', requires_desc='HAVE_OPENSSL')
+env.AddPythonModuleVars(vars, '_ssl', requires_desc='HAVE_OPENSSL and (ws2_32 if Win32)')
+
+for name in ('fcntl', 'grp', 'pwd', 'resource', 'spwd', 'syslog', 'termios'):
+    env.AddPythonModuleVars(vars, name, requires_desc='not Win32')
+env.AddPythonModuleVars(vars, 'nis', requires_desc='not Win32 and HAVE_LIBNSL')
+
+env.AddPythonModuleVars(vars, '_scproxy', requires_desc='Darwin')
+env.AddPythonModuleVars(vars, 'linuxaudiodev', requires_desc='Linux')
+env.AddPythonModuleVars(vars, 'ossaudiodev', requires_desc='Linux')
+
+for name in ('_msi', 'msvcrt', '_subprocess', '_winreg'):
+    env.AddPythonModuleVars(vars, name, requires_desc='Win32')
+
+env.AddPythonModuleVars(vars, '_bsddb', requires_desc='HAVE_LIBDB')
+env.AddPythonModuleVars(vars, 'bz2', requires_desc='HAVE_LIBBZ2')
+env.AddPythonModuleVars(vars, '_curses_panel', requires_desc='HAVE_CURSES')
+env.AddPythonModuleVars(vars, '_curses', requires_desc='HAVE_CURSES')
+env.AddPythonModuleVars(vars, 'dbm', requires_desc='HAVE_LIBNDBM or HAVE_LIBGDBM or HAVE_LIBDB')
+env.AddPythonModuleVars(vars, 'gdbm', requires_desc='HAVE_LIBGDBM')
+env.AddPythonModuleVars(vars, 'readline', requires_desc='HAVE_READLINE and HAVE_CURSES')
+env.AddPythonModuleVars(vars, '_sqlite3', requires_desc='HAVE_LIBSQLITE3')
+env.AddPythonModuleVars(vars, '_tkinter', requires_desc='HAVE_LIBTK and HAVE_LIBTCL')
+env.AddPythonModuleVars(vars, 'zlib', requires_desc='HAVE_LIBZ')
+
+vars_env = Environment()
+vars.Update(vars_env, ARGUMENTS)
+for key in vars.keys():
+    if key not in env:
+        env[key] = vars_env.get(key, None)
+
+Return("env")

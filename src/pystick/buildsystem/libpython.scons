@@ -1,0 +1,157 @@
+# -*- python -*-
+LIBPYTHON_BASE_SOURCE_LIST = [
+    "python/Modules/getbuildinfo.c",
+    "python/Modules/main.c",
+    "python/Objects/abstract.c",
+    "python/Objects/boolobject.c",
+    "python/Objects/bufferobject.c",
+    "python/Objects/bytearrayobject.c",
+    "python/Objects/bytes_methods.c",
+    "python/Objects/capsule.c",
+    "python/Objects/cellobject.c",
+    "python/Objects/classobject.c",
+    "python/Objects/cobject.c",
+    "python/Objects/codeobject.c",
+    "python/Objects/complexobject.c",
+    "python/Objects/descrobject.c",
+    "python/Objects/dictobject.c",
+    "python/Objects/enumobject.c",
+    "python/Objects/exceptions.c",
+    "python/Objects/fileobject.c",
+    "python/Objects/floatobject.c",
+    "python/Objects/frameobject.c",
+    "python/Objects/funcobject.c",
+    "python/Objects/genobject.c",
+    "python/Objects/intobject.c",
+    "python/Objects/iterobject.c",
+    "python/Objects/listobject.c",
+    "python/Objects/longobject.c",
+    "python/Objects/memoryobject.c",
+    "python/Objects/methodobject.c",
+    "python/Objects/moduleobject.c",
+    "python/Objects/object.c",
+    "python/Objects/obmalloc.c",
+    "python/Objects/rangeobject.c",
+    "python/Objects/setobject.c",
+    "python/Objects/sliceobject.c",
+    "python/Objects/stringobject.c",
+    "python/Objects/structseq.c",
+    "python/Objects/tupleobject.c",
+    "python/Objects/typeobject.c",
+    "python/Objects/unicodectype.c",
+    "python/Objects/unicodeobject.c",
+    "python/Objects/weakrefobject.c",
+    "python/Parser/acceler.c",
+    "python/Parser/bitset.c",
+    "python/Parser/firstsets.c",
+    "python/Parser/grammar1.c",
+    "python/Parser/grammar.c",
+    "python/Parser/listnode.c",
+    "python/Parser/metagrammar.c",
+    "python/Parser/myreadline.c",
+    "python/Parser/node.c",
+    "python/Parser/parser.c",
+    "python/Parser/parsetok.c",
+    "python/Parser/pgen.c",
+    "python/Parser/tokenizer.c",
+    "python/Python/asdl.c",
+    "python/Python/ast.c",
+    "python/Python/bltinmodule.c",
+    "python/Python/ceval.c",
+    "python/Python/codecs.c",
+    "python/Python/compile.c",
+    "python/Python/dtoa.c",
+    "python/Python/errors.c",
+    "python/Python/formatter_string.c",
+    "python/Python/formatter_unicode.c",
+    # "python/Python/frozen.c",
+    "python/Python/future.c",
+    "python/Python/getargs.c",
+    "python/Python/getcompiler.c",
+    "python/Python/getcopyright.c",
+    "python/Python/getopt.c",
+    "python/Python/getplatform.c",
+    "python/Python/getversion.c",
+    "python/Python/graminit.c",
+    "python/Python/import.c",
+    "python/Python/importdl.c",
+    "python/Python/marshal.c",
+    "python/Python/modsupport.c",
+    "python/Python/mysnprintf.c",
+    "python/Python/mystrtoul.c",
+    "python/Python/peephole.c",
+    "python/Python/pyarena.c",
+    "python/Python/pyctype.c",
+    "python/Python/pyfpe.c",
+    "python/Python/pymath.c",
+    "python/Python/pystate.c",
+    "python/Python/pystrcmp.c",
+    "python/Python/pystrtod.c",
+    "python/Python/Python-ast.c",
+    "python/Python/pythonrun.c",
+    "python/Python/random.c",
+    "python/Python/structmember.c",
+    "python/Python/symtable.c",
+    "python/Python/sysmodule.c",
+    "python/Python/thread.c",
+    "python/Python/traceback.c",
+    "python/Python/_warnings.c"
+]
+
+Import("env pyconfig_defines")
+
+env = env.Clone()
+env.Append(CPPDEFINES=['Py_BUILD_CORE'])
+libpython_objects = []
+
+if env.get('PYTHON_DYNLOAD_FILE', None):
+    dynloadfile = env['PYTHON_DYNLOAD_FILE']
+else:
+    # UNIX platforms
+    # FIXME the following defines should be set for getpath.c:
+    # - PYTHONPATH
+    # - PREFIX
+    # - EXEC_PREFIX (optional)
+    # - LANDMARK (optional)
+    if env['PLATFORM'] == 'aix':
+        dynloadfile = 'dynload_shlib.c' if 'HAVE_DLOPEN' in pyconfig_defines else 'dynload_aix.c'
+    elif env['PLATFORM'] == 'beos':
+        dynloadfile = 'dynload_beos.c'
+    elif env['PLATFORM'] == 'hp':
+        dynloadfile = 'dynload_hpux.c'
+    elif env['PLATFORM'] == 'win32':
+        dynloadfile = 'dynload_win.c'
+    elif 'HAVE_DLOPEN' in pyconfig_defines:
+        dynloadfile = 'dynload_shlib.c'
+    else:
+        dynloadfile = 'dynload_stub.c'
+
+
+getpath_env = env.Clone()
+getpath_defines = []
+if env.get('GETPATH_PYTHONPATH', None) is not None:
+    getpath_defines.append(r'PYTHONPATH=\"{}\"'.format(env['GETPATH_PYTHONPATH']))
+if env.get('GETPATH_VERSION', None) is not None:
+    getpath_defines.append(r'VERSION=\"{}\"'.format(env['GETPATH_VERSION']))
+if env.get('GETPATH_EXEC_PREFIX', None) is not None:
+    getpath_defines.append(r'EXEC_PREFIX=\"{}\"'.format(env['GETPATH_EXEC_PREFIX']))
+if env.get('GETPATH_PREFIX', None) is not None:
+    getpath_defines.append(r'PREFIX=\"{}\"'.format(env['GETPATH_PREFIX']))
+if env.get('GETPATH_LANDMARK', None) is not None:
+    getpath_defines.append(r'LANDMARK=\"{}\"'.format(env['GETPATH_LANDMARK']))
+
+getpath_env.Append(CPPDEFINES=getpath_defines)
+getpath_o = getpath_env.Object('python/Modules/getpath.c' if env['PLATFORM'] != 'win32' else 'python/PC/getpathp.c')
+dynload_o = env.Object("python/Python/{}".format(dynloadfile))
+libpython_objects.extend([getpath_o, dynload_o])
+
+if env['PLATFORM'] == 'win32':
+    import_nt_env = env.Clone()
+    import_nt_env.Append(CPPPATH='python/Python')
+    libpython_objects.append(import_nt_env.Object('python/PC/import_nt.c'))
+
+libpython_objects.extend(env.Object(source) for source in LIBPYTHON_BASE_SOURCE_LIST)
+libpython = env.Library('python27', libpython_objects)
+# Depends(libpython, 'pyconfig.h')
+
+Return('libpython libpython_objects')

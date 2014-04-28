@@ -1,0 +1,17 @@
+Import('env pyconfig_defines')
+env = env.Clone(tools=['textfile'])
+
+def create_pyconfig_subst_dict():
+    result = []
+    for key, val in pyconfig_defines.iteritems():
+        result.append((r"#(\s*)undef {}\n".format(key), "#\\1define {} {}\n".format(key, val)))
+    # last rule - comment out all other undefs
+    result.append((r"(#\s*undef [^\n]*)\n", r"/* \1 */\n"))
+    return result
+
+if env['PLATFORM'] != 'win32':
+    pyconfig = env.Substfile('pyconfig.h', '#python/pyconfig.h.in', SUBST_DICT=create_pyconfig_subst_dict())
+else:
+    pc_pyconfig = env.Command('PC/pyconfig.h', '#pyconfig.h.win32', Copy("$TARGET", "$SOURCE"))
+    pyconfig = env.Command('pyconfig.h', pc_pyconfig, Copy("$TARGET", "$SOURCE"))
+Return('pyconfig')

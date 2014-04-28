@@ -1,0 +1,100 @@
+Import('env')
+env = env.Clone(tools=['textfile'])
+
+
+def create_makefile_defines():
+    d = dict()
+
+    # FIXME
+    d['@AR@'] = env['AR']
+    d['@ARFLAGS@'] = env['ARFLAGS']
+    d['@BASECFLAGS@'] = ''  # FIXME
+    d['@BLDLIBRARY@'] = ''  # FIXME
+    d['@BLDSHARED@'] = ''  # FIXME
+    d['@BUILDEXEEXT@'] = ''  # FIXME
+    d['@CC@'] = env['CC']
+    d['@CCSHARED@'] = ''  # FIXME
+    d['@CFLAGS@'] = ''  # FIXME
+    d['@CFLAGSFORSHARED@'] = ''  # FIXME
+    d['@CONFIGURE_MACOSX_DEPLOYMENT_TARGET@'] = ''  # FIXME
+    d['@CONFIG_ARGS@'] = ''  # FIXME
+    d['@CPPFLAGS@'] = ''  # FIXME
+    d['@CXX@'] = env['CXX']
+    d['@DLINCLDIR@'] = ''  # FIXME
+    d['@DLLLIBRARY@'] = ''  # FIXME
+    d['@DYNLOADFILE@'] = ''  # FIXME
+    d['@EXEEXT@'] = ''  # FIXME (win32)
+    d['@EXTRAMACHDEPPATH@'] = ''  # FIXME
+    d['@EXTRAPLATDIR@'] = ''  # FIXME
+    d['@GNULD@'] = 'yes'  # FIXME
+    d['@HGBRANCH@'] = 'hg id -b $(srcdir)' # FIXME
+    d['@HGTAG@'] = 'hg id -t $(srcdir)' # FIXME
+    d['@HGVERSION@'] = 'hg id -i $(srcdir)' # FIXME
+    d['@INSTALL@'] = '/usr/bin/install -c'  # FIXME
+    d['@INSTALL_DATA@'] = '${INSTALL} -m 644'  # FIXME
+    d['@INSTALL_PROGRAM@'] = '${INSTALL}'  # FIXME
+    d['@INSTALL_SCRIPT@'] = '${INSTALL}'  # FIXME
+    d['@INSTALL_SHARED@'] = '${INSTALL} -m 555'  # FIXME
+    d['@INSTSONAME@'] = ''  # FIXME
+    d['@LDCXXSHARED@'] = ''  # FIXME
+    d['@LDFLAGS@'] = ''  # FIXME
+    d['@LDLAST@'] = ''  # FIXME
+    d['@LDLIBRARY@'] = ''  # FIXME
+    d['@LDLIBRARYDIR@'] = ''  # FIXME
+    d['@LIBC@'] = ''  # FIXME
+    d['@LIBFFI_INCLUDEDIR@'] = ''  # FIXME
+    d['@LIBM@'] = ''  # FIXME
+    d['@LIBOBJS@'] = ''  # FIXME
+    d['@LIBRARY@'] = ''  # FIXME
+    d['@LIBS@'] = ''  # FIXME
+    d['@LINKCC@'] = '$(PURIFY) $(MAINCC)' # FIXME
+    d['@LINKFORSHARED@'] = ''  # FIXME
+    d['@LN@'] = 'ln'  # FIXME
+    d['@MACHDEP@'] = ''  # FIXME
+    d['@MACHDEP_OBJS@'] = ''  # FIXME
+    d['@MAINCC@'] = '$(CC)'
+    d['@MKDIR_P@'] = '/bin/mkdir -p'  # FIXME
+    d['@MULTIARCH@'] = ''  # FIXME
+    d['@OPT@'] = ''  # FIXME
+    d['@OTHER_LIBTOOL_OPT@'] = ''  # FIXME
+    d['@PYTHONFRAMEWORK@'] = ''  # FIXME
+    d['@PYTHONFRAMEWORKDIR@'] = ''  # FIXME
+    d['@PYTHONFRAMEWORKINSTALLDIR@'] = ''  # FIXME
+    d['@PYTHONFRAMEWORKPREFIX@'] = ''  # FIXME
+    d['@PYTHON_FOR_BUILD@'] = ''  # FIXME
+    if 'RANLIB' in env:
+        d['@RANLIB@'] = env['RANLIB']
+    d['@RUNSHARED@'] = ''  # FIXME
+    d['@RUNSHARED@'] = ''  # FIXME
+    d['@SGI_ABI@'] = ''  # FIXME
+    d['@SHLIBS@'] = ''  # FIXME
+    d['@SIGNAL_OBJS@'] = ''  # FIXME
+    d['@SO@'] = ''  # FIXME
+    d['@SRCDIRS@'] = ''  # FIXME
+    d['@SVNVERSION@'] = 'svnversion $(srcdir)' # FIXME
+    d['@TCLTK_INCLUDES@'] = ''  # FIXME
+    d['@TCLTK_LIBS@'] = ''  # FIXME
+    d['@THREADHEADERS@'] = ''  # FIXME
+    d['@THREADOBJ@'] = ''  # FIXME
+    d['@UNICODE_OBJS@'] = ''  # FIXME
+    d['@UNIVERSALSDK@'] = ''  # FIXME
+    d['@VERSION@'] = '2.7'  # FIXME
+    d['@abs_builddir@'] = 'build'  # FIXME
+    d['@abs_srcdir@'] = '.'  # FIXME
+    d['@bindir@'] = ''  # FIXME
+    d['@build@'] = 'linux'  # FIXME
+    d['@datarootdir@'] = ''  # FIXME
+    d['@exec_prefix@'] = ''  # FIXME
+    d['@host@'] = 'linux'  # FIXME
+    d['@includedir@'] = ''  # FIXME
+    d['@libdir@'] = ''  # FIXME
+    d['@mandir@'] = ''  # FIXME
+    d['@prefix@'] = ''  # FIXME
+    d['@srcdir@'] = '.'  # FIXME
+    d['_MODLIBS_'] = ''  # FIXME
+    d['_MODOBJS_'] = ''  # FIXME
+    return d
+
+env.Substfile('Makefile.pre', 'python/Makefile.pre.in', SUBST_DICT=create_makefile_defines())
+makefile = Command('Makefile', 'Makefile.pre', Copy("$TARGET", "$SOURCE"))
+Return('makefile')

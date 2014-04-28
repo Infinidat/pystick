@@ -1,0 +1,76 @@
+# Support for adding external Python modules
+#
+# The way we go about it is non-intuitive, but that's because we do non-standard SCons things.
+#
+# First, the reason this file is under 'external_py_modules' and not called external_py_modules.scons under buildsystem
+# is that we want to put the object files under BUILD_PATH/external_py_modules.
+#
+# The support for external Python modules is implemented by reading a JSON file that looks like this:
+#
+# [
+#     {
+#         "name": "my.module.a",
+#         "package": True,
+#         "source": "/abs/path/to/source/Module.py",
+#         "code_file_name": "path/file_name_used_in_code_object.py",
+#         "depends": ["my.module.b", "other.module"]
+#     },
+#     ...
+# ]
+#
+# The following keys in each module are OPTIONAL:
+# - depends (then assumed empty)
+# - code_file_name (if doesn't exist then the source path is used)
+#
+# Now for the non-trivial keys:
+# - 'source' is the path to the .py file (source file, not .pyc)
+# - 'code_file_name' is the path we write in the generated code object (the path that will appear in tracebacks)
+#
+# TODO although we accept dependencies via the 'depends' key, the modules package doesn't do anything with it.
+import os
+import json
+from freezer import freeze_file
+from bare_python import add_bare_python_to_env
+
+Import('env freeze_modules')
+env = env.Clone()
+add_bare_python_to_env(env)
+
+with open(File(env['EXTERNAL_PY_MODULES_FILE']).abspath, "r") as f:
+    module_list = json.load(f)
+
+frozen_modules = dict()
+
+for module_params in module_list:
+    name = module_params['name']
+    source = os.path.abspath(module_params['source'])
+    code_file_name = module_params.get('code_file_name', source)
+    depends = module_params.get('depends', [])
+
+    fname, _ = os.path.splitext(os.path.basename(source))
+    if fname == '__init__':
+        package, module_name = name, '__init__'
+    elif '.' in name:
+        package, module_name = name.rsplit('.', 1)
+    else:
+        package, module_name = '', name
+
+    if package:
+        if module_name == '__init__':
+            package = 'freezer_package.' + package
+        else:
+            package = 'freezer.' + package
+    else:
+        package = 'freezer'
+
+    freezed_file = freeze_file(env, env.Dir('freezer'), source, package, module_name, frozen_modules, depends)
+    if freezed_file:
+        freeze_modules.append(freezed_file)
+
+if module_list:
+    # We have external modules, we need to add sitecustomize:
+    freeze_sitecustomize = freeze_file(env, env.Dir('freezer'), env.File('freeze_sitecustomize.py').abspath,
+                                       '', 'sitecustomize', frozen_modules, [])
+    freeze_modules.append(freeze_sitecustomize)
+
+Return('freeze_modules')

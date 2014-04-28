@@ -1,0 +1,105 @@
+# Support for adding external C modules
+#
+# The way we go about it is non-intuitive, but that's because we do non-standard SCons things.
+#
+# First, the reason this file is under 'external_c_modules' and not called external_c_modules.scons under buildsystem
+# is that we want to put the object files under BUILD_PATH/external_c_modules.
+#
+# The support for external C modules is implemented by reading a JSON file that looks like this:
+#
+# [
+#     {
+#         "name": "module_name",
+#         "sources": [
+#             "/abs/path/to/sourceA/A.c",
+#             "/abs/path/to/sourceB/B.c",
+#             ...
+#         ],
+#         "roots": [
+#             "/abs/path/to/sourceA",
+#             "/abs/path/to/sourceB",
+#             ...
+#         ],
+#         "env": {
+#             "CPPDEFINES": ["X", "Y", "Z"],
+#             "CCFLAGS": ["-Wall"],
+#             ...
+#         },
+#         "shared": True,
+#         "pic": True,
+#         "depends": ["moduleA", "moduleB"]
+#     },
+#     ...
+# ]
+#
+# The following keys in each module are OPTIONAL:
+# - shared and pic (can be found in env, or use the global modules settings)
+# - depends (then assumed empty)
+# - env (then assumed no modifications to the env)
+#
+# Now for the non-trivial keys:
+# - 'sources' is a list of _absolute_ path sources.
+#   - Each source must have a root that's a full prefix for the source path (see 'roots' below).
+# - 'roots' is a list of source roots. This is used to "mount" these roots via Repository().
+# - 'env' is a dict with keys corresponding to SCons env keys. Think of this like calling env.Clone(**dict).
+#
+# Note that this way, if two separate modules have the same file name we have a problem since the way Repository()
+# works the different roots won't get treated as different sources.
+#
+# TODO although we accept dependencies via the 'depends' key, the modules package doesn't do anything with it.
+import os
+import json
+from modules import add_python_module_funcs_to_env, name_to_mangled
+
+Import('env')
+env = env.Clone()
+add_python_module_funcs_to_env(env)
+
+with open(env.File(env['EXTERNAL_C_MODULES_FILE']).abspath, "r") as f:
+    module_list = json.load(f)
+
+for module_params in module_list:
+    name = module_params['name']
+    sources = sorted([os.path.abspath(src) for src in module_params['sources']])
+    roots = list(reversed(sorted([os.path.abspath(p) for p in module_params['roots']])))
+
+    for root in roots:
+        env.Dir(os.path.join("#external_modules", name)).addRepository(env.Dir(root))
+
+    is_shared = module_params.get('shared', None)
+    is_pic = module_params.get('pic', None)
+    append_env = module_params.get('env', None)
+    depends = module_params.get('depends', [])
+
+    mangled_name = name_to_mangled(name)
+    with_module_env_var = 'WITH_PYTHON_MODULE_{}'.format(mangled_name)
+    is_shared_env_var = 'SHARED_PYTHON_MODULE_{}'.format(mangled_name)
+    is_static_env_var = 'STATIC_PYTHON_MODULE_{}'.format(mangled_name)
+    is_pic_env_var = 'PIC_PYTHON_MODULE_{}'.format(mangled_name)
+
+    env.SetDefault(**{with_module_env_var: True})
+    if is_pic is not None:
+        env.SetDefault(**{is_pic_env_var: is_pic})
+    if is_shared is not None:
+        env.SetDefault(**{is_shared_env_var: is_shared})
+
+    for root in roots:
+        env.Repository(root)
+
+    rel_sources = []
+    for source in sources:
+        root = next((r for r in roots if os.path.commonprefix([r, source]) == r), None)
+        if not root:
+            raise Exception("can't find root directory for external C module {!r}, source {!r} out of roots {!r}".format(
+                            name, source, roots))
+        rel_sources.append(os.path.join("#external_modules", name, os.path.relpath(source, root)))
+
+    env.AddPythonModule(name, rel_sources, append_env=append_env, depends=depends)
+
+if module_list:
+    env['WITH_PYTHON_MODULE_FREEZE_EXTERNAL_MODULES'] = True
+    env['STATIC_PYTHON_MODULE_FREEZE_EXTERNAL_MODULES'] = True
+    env.AddPythonModule('freeze_external_modules', ['freeze_external_modules.c'], requirements=True)
+
+python_modules = env.GetPythonModulesConfiguration()
+Return('python_modules')

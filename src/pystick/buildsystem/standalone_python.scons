@@ -1,0 +1,11 @@
+Import("env")
+
+env = env.Clone()
+env.Append(CPPDEFINES='Py_BUILD_CORE')
+
+python_o = [env.Object('python/Modules/python.c')]
+
+if env['PLATFORM'] == 'win32':
+    python_o.append(env.SharedObject('python/PC/dl_nt.c'))
+
+Return("python_o")

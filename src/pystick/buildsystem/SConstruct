@@ -1,0 +1,10 @@
+# -*- python -*-
+# This file generally should not be used. Instead, use the platform-specifc files such as linux_static.scons.
+AddOption('--defaultenv', dest='defaultenv', type='string', nargs=1, action='store', metavar='FILE',
+          help='File that contains a DefaultEnvironment declaration')
+
+if GetOption('defaultenv'):
+    execfile(GetOption('defaultenv'))
+else:
+    env = Environment()
+SConscript('SConscript', exports='env')

@@ -1,0 +1,26 @@
+import re
+from os import path
+from freezer import freeze_dir, freeze_file
+from bare_python import add_bare_python_to_env
+
+Import("env")
+
+env = env.Clone()
+add_bare_python_to_env(env)
+
+exclude_list = [r'plat\-*',  # will include the specific platform in include_list
+                r'site-packages',
+                r'^tests?$',
+                r'^.*' + re.escape(path.sep) + r'tests?$']
+# FIXME platform specific
+include_list = [r'plat-linux2', r'platform']
+
+lib_dirs = [str(d) for d in Dir('#python/Lib').get_all_rdirs() if d.exists()]
+module_lists =[freeze_dir(env, Dir('freezer'), d, exclude_list=exclude_list, include_list=include_list) for d in lib_dirs]
+freeze_modules = sum(module_lists, [])
+
+sysconfigdata_path = Dir('modules').File('_sysconfigdata.py')
+sysconfigdata_module = freeze_file(env, Dir('freezer'), sysconfigdata_path, None, '_sysconfigdata', dict(), None)
+freeze_modules.append(sysconfigdata_module)
+
+Return("freeze_modules")
