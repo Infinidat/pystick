@@ -4,6 +4,7 @@ config_c_path = 'fullpython/config.c'
 config_o = SConscript('config_c.scons', exports='env config_c_path')
 
 # This is our patched dl_nt.c that doesn't force a DllMain on the user:
+env = env.Clone(CPPDEFINES='Py_BUILD_CORE')
 if env['PLATFORM'] == 'win32':
     dl_nt_o = [SharedObject('dl_nt_no_dllmain.c')]
 else:

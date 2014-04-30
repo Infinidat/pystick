@@ -1,4 +1,4 @@
-Import("env libfullpython freeze_modules python_o")
+Import("env libfullpython python_o")
 env = env.Clone()
 env.VariantDir("python", "#python", duplicate=False)  # FIXME create a #python_build variant in the root and use that
 
