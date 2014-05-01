@@ -1,1 +1,1 @@
-recursive-include src *.c *.scons *.win32 SConscript SConstruct
+recursive-include src *.c *.scons *.win32 builsystem/* SConscript SConstruct site_scons/*
