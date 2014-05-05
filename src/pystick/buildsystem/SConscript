@@ -31,7 +31,8 @@ def make_ar_command(prev_cmd):
 
 # We create a response file (a file with all the list of objects) so it won't pass the max arg len limit
 # This is true for some of the Linuxes and also Windows.
-env['ARCOM'] = make_ar_command(env['ARCOM'])
+if env['PLATFORM'] != 'darwin':
+    env['ARCOM'] = make_ar_command(env['ARCOM'])
 
 
 if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
