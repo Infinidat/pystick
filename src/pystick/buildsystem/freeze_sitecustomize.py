@@ -1,6 +1,13 @@
 import imp
 import sys
 
+try:
+    import os
+    freeze_overrides = [s for s in os.environ.get('PYSTICK_PYTHONPATH_FREEZE_OVERRIDES', '').split(':') if s]
+except:
+    freeze_overrides = []
+
+
 # The idea is that we put all the frozen modules under either freezer.xxx.yyy.zz or freezer_package.xxx.yy.zz,
 # depending on whether the module is a package or not (i.e. __init__). We do it in this hacky way because we're not
 # exposed to the size field of a frozen module so we can't know what Python's code knows that a module is a package
@@ -9,9 +16,11 @@ class ModuleImporter(object):
     def find_module(self, fullname, path=None):
         # Python's default import implementation doesn't handle builtins with '.' in them well, so we handle them here
         # as well.
-        if imp.is_frozen('freezer_package.' + fullname) or \
-           imp.is_frozen('freezer.' + fullname) or \
-           (fullname.find('.') != -1 and imp.is_builtin(fullname)):
+        # We allow freeze_overrides to give prefixes that although may be frozen we'll skip so they can be found in
+        # the PYTHONPATH - this is good for development.
+        if (not any(fullname.startswith(override) for override in freeze_overrides)) and \
+           (imp.is_frozen('freezer_package.' + fullname) or imp.is_frozen('freezer.' + fullname) or
+            (fullname.find('.') != -1 and imp.is_builtin(fullname))):
             return self
         else:
             return None
