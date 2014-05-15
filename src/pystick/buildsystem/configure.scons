@@ -348,7 +348,7 @@ int main() {
     return 0;
 }
 """
-    return not config.CheckCCompiles('Checking whether va_list is an array... ', code)
+    return config.CheckCCompiles('Checking whether va_list is an array... ', code)
 
 
 def check_pthread_scope_system_supported(config):
