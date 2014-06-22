@@ -75,9 +75,42 @@ int main() {
     return config.CheckCLinks('Checking for {}{}()... '.format(lib_name, sym_name), code % dict(sym_name=sym_name))
 
 
+def check_ar_supports_response_file(context):
+    import tempfile
+    import os
+    import SCons
+
+    context.Message("Checking if AR supports response file (@)... ")
+
+    env = context.sconf.env
+
+    text_fd, text_path = tempfile.mkstemp()
+    os.close(text_fd)
+
+    rsp_fd, rsp_path = tempfile.mkstemp()
+    os.write(rsp_fd, text_path)
+    os.close(rsp_fd)
+
+    ar_path = tempfile.mktemp(suffix='.ar')
+
+    new_ar_command = env['ARCOM'].replace('$SOURCES', '@$_RSP_FILE')
+    action = SCons.Action.CommandAction(new_ar_command)
+
+    try:
+        result = action.execute(ar_path, text_path, env.Clone(_RSP_FILE=rsp_path))
+        context.Result(result == 0)
+        return result == 0
+    finally:
+        os.unlink(rsp_path)
+        os.unlink(text_path)
+        if os.path.exists(ar_path):
+            os.unlink(ar_path)
+
+
 def get_custom_tests_dict():
     return dict(CheckCStructMember=check_c_struct_member,
                 CheckCRuns=check_c_runs,
                 CheckCCompiles=check_c_compiles,
                 CheckCLinks=check_c_links,
-                CheckDeviceFile=check_device_file)
+                CheckDeviceFile=check_device_file,
+                CheckARResponseFile=check_ar_supports_response_file)
