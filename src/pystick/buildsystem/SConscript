@@ -2,6 +2,7 @@
 import SCons.Errors
 
 import cenv
+import platform
 from modules import add_python_module_funcs_to_env
 from utils import is_building
 
@@ -21,6 +22,19 @@ def ar_command(cmd, target, source, env):
     env['_RSP_FILE'] = path
     from SCons.Action import CommandAction
     act = CommandAction(cmd)
+    return act.execute(target, source, env)
+
+
+def ar_mri_command(target, source, env):
+    path = target[0].abspath + ".rsp"  # not really a response file, but still
+    with open(path, "w") as f:
+        f.write("CREATE {}\n".format(target[0].abspath))
+        for s in source:
+            f.write("ADDMOD {}\n".format(s.abspath))
+        f.write("SAVE\n")
+        f.write("END\n")
+    from SCons.Action import CommandAction
+    act = CommandAction("$AR -M < {}".format(path))
     return act.execute(target, source, env)
 
 
@@ -48,7 +62,9 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
 
     # We create a response file (a file with all the list of objects) so it won't pass the max arg len limit
     # This is true for some of the Linuxes and also Windows.
-    if pyconfig_defines.get('AR_HAS_RSP', False):
+    if platform.dist()[:2] == ('centos', '4.8'):
+        env['ARCOM'] = ar_mri_command
+    elif pyconfig_defines.get('AR_HAS_RSP', False):
         env['ARCOM'] = make_ar_command(env['ARCOM'])
 
     # Add Python's (mounted) Include directory to our include path.
