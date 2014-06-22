@@ -694,6 +694,9 @@ def configure():
     if not sanity_test(config):
         raise Exception("Compiler/linker sanity test failed, check {} for more details.".format(configure_log.abspath))
 
+    if config.CheckARResponseFile():
+        defines['AR_HAS_RSP'] = 1
+
     # Check if MINIX:
     if config.CheckHeader('minix/config.h'):
         defines['_MINIX'] = 1
