@@ -1241,7 +1241,7 @@ int main() {
 
 
 def configure_win32():
-    return env, dict()
+    return env, dict(AR_HAS_RSP=1)  # assume we use msvc and then lib.exe supports @.. syntax
 
 
 if is_building():
