@@ -43,6 +43,29 @@ def make_ar_command(prev_cmd):
     return partial(ar_command, prev_cmd.replace('$SOURCES', '@$_RSP_FILE'))
 
 
+def split_ar_command(target, source, env):
+    from SCons.Action import Action, CommandAction
+    actions = []
+    source_list = list(source)
+    n_files_per_iter = 20
+    # first action is different
+
+    def shellquote(s):
+        return "'" + s.abspath.replace("'", "'\\''") + "'"
+
+    for i in range(0, len(source_list), n_files_per_iter):
+        source_slice = source_list[i:i + n_files_per_iter]
+        actions.append(CommandAction("$AR qS $TARGET {}".format(" ".join(map(shellquote, source_slice)))))
+
+    actions.append(CommandAction("$RANLIB $TARGET"))
+
+    return Action(actions)(target, source, env)
+
+
+def make_split_ar_command(prev_cmd):
+    return split_ar_command
+
+
 if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
     print("Using Python sources from {}".format(env.Dir('$PYTHON_SOURCE_PATH').abspath))
 
@@ -66,6 +89,8 @@ if env.get('BUILD_PATH') and env.get('PYTHON_SOURCE_PATH'):
         env['ARCOM'] = ar_mri_command
     elif pyconfig_defines.get('AR_HAS_RSP', False):
         env['ARCOM'] = make_ar_command(env['ARCOM'])
+    elif env['PLATFORM'] == 'darwin':
+        env['ARCOM'] = make_split_ar_command(env['ARCOM'])
 
     # Add Python's (mounted) Include directory to our include path.
     env.Append(CPPPATH=['#python/Include', '$BUILD_PATH'])
