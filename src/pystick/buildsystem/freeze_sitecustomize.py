@@ -13,6 +13,10 @@ except:
 # exposed to the size field of a frozen module so we can't know what Python's code knows that a module is a package
 # (negative size).
 class ModuleImporter(object):
+
+    def is_package(self, fullname):
+        return imp.is_frozen('freezer_package.' + fullname)
+
     def find_module(self, fullname, path=None):
         # Python's default import implementation doesn't handle builtins with '.' in them well, so we handle them here
         # as well.
@@ -20,7 +24,7 @@ class ModuleImporter(object):
         # the PYTHONPATH - this is good for development.
         if (not any(fullname.startswith(override) for override in freeze_overrides)) and \
            (imp.is_frozen('freezer_package.' + fullname) or imp.is_frozen('freezer.' + fullname) or
-            (fullname.find('.') != -1 and imp.is_builtin(fullname))):
+                (fullname.find('.') != -1 and imp.is_builtin(fullname))):
             return self
         else:
             return None

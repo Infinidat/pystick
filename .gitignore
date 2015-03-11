@@ -9,6 +9,7 @@
 *.EGG-INFO
 .coverage
 .settings
+.sconsign.dblite
 
 # eclipse
 .project

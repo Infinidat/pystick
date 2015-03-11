@@ -106,7 +106,6 @@ if is_posix:
 
         # TODO: we have several other OSX modules that Python's setup.py builds
         # (lines 1621-1715 in Python 2.7.6's setup.py)
-
         env.AddPythonModule('_ctypes', [
                             '#python/Modules/_ctypes/_ctypes.c',
                             '#python/Modules/_ctypes/callbacks.c',
@@ -129,7 +128,7 @@ if is_posix:
                                                      '#python/Modules/_ctypes/libffi_osx/include',
                                                      '#python/Modules/_ctypes/libffi_osx/powerpc',
                                                      '#python/Modules/_ctypes/libffi/include'],
-                                            CPPDEFINES='MACOSX'))
+                                            CPPDEFINES=['MACOSX']))
     else:
         # TODO: finish writing the autoconf script for libffi using scons
         # env, pyconfig_defines, fficonfig = SConscript('libffi.sconfigure', exports=['env', 'build_dir'])
