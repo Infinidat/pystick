@@ -44,7 +44,7 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
 
     build_env = env.Clone()
     if append_env:
-        build_env.Append(**append_env)
+        build_env.Prepend(**append_env)
 
     if not is_shared:
         build_env.Append(CPPDEFINES='Py_NO_ENABLE_SHARED')
