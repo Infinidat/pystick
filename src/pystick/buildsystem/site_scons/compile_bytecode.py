@@ -1,5 +1,4 @@
 # -*- python -*-
-import imp
 import sys
 import marshal
 
@@ -11,7 +10,6 @@ def main():
     src_path, target_path, module_name, filename, is_package = sys.argv[1:]
     mangled_module_name = module_name.replace('.', '__').replace('-', '_').replace('(', '_').replace(')', '_').replace(' ', '_')
     is_package = is_package.lower() in ('t', 'true', '1', 'yes')
-    is_package_sign = '-' if is_package else ''
 
     print("src_path={}, target_path={}".format(src_path, target_path))
     with open(src_path, "r") as input:
@@ -20,8 +18,12 @@ def main():
             source = source[source.index('\n'):]
         with open(target_path, "w") as output:
             if src_path.endswith(".py"):
-                code_obj = compile(source, filename, 'exec', 0, 1)
-                code = marshal.dumps(code_obj)
+                try:
+                    code_obj = compile(source, filename, 'exec', 0, 1)
+                    code = marshal.dumps(code_obj)
+                except SyntaxError:
+                    sys.stderr.write("WARNING: {} failed on syntax error, writing an empty (invalid) file.\n".format(src_path))
+                    code = ""
             else:
                 # assume .pyc/.pyo
                 code = code[8:]  # skip magic + timestamp
