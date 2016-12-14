@@ -615,7 +615,7 @@ class Base(SCons.Node.Node):
 
     def __repr__(self):
         try:
-            return "<Dir (name={!r}, directory={!r}, fs={!r}, abspath={!r})>".format(self.name, self.dir, self.fs, self.abspath)
+            return "<Dir (name={!r}, directory={!r}, fs={!r}, abspath={!r})>".format(self.name, object.__repr__(self.dir), self.fs, self.abspath)
         except:
             return object.__repr__(self)
 
