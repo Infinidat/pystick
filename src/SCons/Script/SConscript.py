@@ -309,7 +309,7 @@ def SConscript_exception(file=sys.stderr):
     without cluttering the output with all of the internal calls leading
     up to where we exec the SConscript."""
     exc_type, exc_value, exc_tb = sys.exc_info()
-    traceback.print_exception(exc_type, exc_valur, exc_tb, file=file)
+    traceback.print_exception(exc_type, exc_value, exc_tb, file=file)
 
 def annotate(node):
     """Annotate a node with the stack frame describing the
