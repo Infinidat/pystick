@@ -613,6 +613,12 @@ class Base(SCons.Node.Node):
         self.cwd = None # will hold the SConscript directory for target nodes
         self.duplicate = directory.duplicate
 
+    def __repr__(self):
+        try:
+            return "<Dir (name={!r}, directory={!r}, fs={!r}, abspath={!r})>".format(self.name, self.dir, self.fs, self.abspath)
+        except:
+            return object.__repr__(self)
+
     def str_for_display(self):
         return '"' + self.__str__() + '"'
 
