@@ -542,7 +542,7 @@ def _scons_syntax_error(e):
     occurred.
     """
     etype, value, tb = sys.exc_info()
-    traceback.print_tb(tb, file=sys.stderr)
+    traceback.print_exception(etype, value, tb, file=sys.stderr)
     sys.exit(2)
 
 def find_deepest_user_frame(tb):
