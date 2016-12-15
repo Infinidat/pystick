@@ -542,9 +542,7 @@ def _scons_syntax_error(e):
     occurred.
     """
     etype, value, tb = sys.exc_info()
-    lines = traceback.format_exception_only(etype, value)
-    for line in lines:
-        sys.stderr.write(line+'\n')
+    traceback.print_exception(etype, value, tb, file=sys.stderr)
     sys.exit(2)
 
 def find_deepest_user_frame(tb):
@@ -571,13 +569,8 @@ def _scons_user_error(e):
     The file and line number will be the deepest stack frame that is
     not part of SCons itself.
     """
-    global print_stacktrace
     etype, value, tb = sys.exc_info()
-    if print_stacktrace:
-        traceback.print_exception(etype, value, tb)
-    filename, lineno, routine, dummy = find_deepest_user_frame(traceback.extract_tb(tb))
-    sys.stderr.write("\nscons: *** %s\n" % value)
-    sys.stderr.write('File "%s", line %d, in %s\n' % (filename, lineno, routine))
+    traceback.print_exception(etype, value, tb, file=sys.stderr)
     sys.exit(2)
 
 def _scons_user_warning(e):

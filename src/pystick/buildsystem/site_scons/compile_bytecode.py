@@ -14,7 +14,7 @@ def main():
     print("src_path={}, target_path={}".format(src_path, target_path))
     with open(src_path, "r") as input:
         source = input.read()
-        if source.startswith('# -*- coding'):
+        if source.find('\n') != -1 and source.startswith('#') and 'coding' in source[:source.index('\n')]:
             source = source[source.index('\n'):]
         with open(target_path, "w") as output:
             if src_path.endswith(".py"):

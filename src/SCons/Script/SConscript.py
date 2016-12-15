@@ -309,24 +309,7 @@ def SConscript_exception(file=sys.stderr):
     without cluttering the output with all of the internal calls leading
     up to where we exec the SConscript."""
     exc_type, exc_value, exc_tb = sys.exc_info()
-    tb = exc_tb
-    while tb and stack_bottom not in tb.tb_frame.f_locals:
-        tb = tb.tb_next
-    if not tb:
-        # We did not find our exec statement, so this was actually a bug
-        # in SCons itself.  Show the whole stack.
-        tb = exc_tb
-    stack = traceback.extract_tb(tb)
-    try:
-        type = exc_type.__name__
-    except AttributeError:
-        type = str(exc_type)
-        if type[:11] == "exceptions.":
-            type = type[11:]
-    file.write('%s: %s:\n' % (type, exc_value))
-    for fname, line, func, text in stack:
-        file.write('  File "%s", line %d:\n' % (fname, line))
-        file.write('    %s\n' % text)
+    traceback.print_exception(exc_type, exc_value, exc_tb, file=file)
 
 def annotate(node):
     """Annotate a node with the stack frame describing the
