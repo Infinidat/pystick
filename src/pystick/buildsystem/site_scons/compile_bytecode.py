@@ -21,6 +21,9 @@ def main():
                 try:
                     code_obj = compile(source, filename, 'exec', 0, 1)
                     code = marshal.dumps(code_obj)
+                except LookupError:
+                    sys.stderr.write("WARNING: {} failed on encoding error, writing an empty (invalid) file.\n".format(src_path))
+                    code = ""
                 except SyntaxError:
                     sys.stderr.write("WARNING: {} failed on syntax error, writing an empty (invalid) file.\n".format(src_path))
                     code = ""
