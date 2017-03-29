@@ -38,12 +38,15 @@ def main():
             output.write("/* Size: %s */\n" % size)
             output.write("/* File: %s */\n" % filename)
             output.write("/* Is Package: %s */\n" % is_package)
-            output.write("unsigned char _FreezeM%s[] = {\n" % mangled_module_name)
-            for i in range(0, len(code), 32):
-                for c in code[i:i + 32]:
-                    output.write("{:#04x}, ".format(ord(c)))
-                output.write("\n")
-            output.write("};\n")
+            if code:
+                output.write("unsigned char _FreezeM%s[] = {\n" % mangled_module_name)
+                for i in range(0, len(code), 32):
+                    for c in code[i:i + 32]:
+                        output.write("{:#04x}, ".format(ord(c)))
+                    output.write("\n")
+                output.write("};\n")
+            else:
+                output.write("unsigned char _FreezeM%s[] = { 0 };\n" % mangled_module_name)
 
 if __name__ == "__main__":
     main()
