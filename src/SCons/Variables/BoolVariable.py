@@ -2,17 +2,17 @@
 
 This file defines the option type for SCons implementing true/false values.
 
-Usage example:
+Usage example::
 
-  opts = Variables()
-  opts.Add(BoolVariable('embedded', 'build for an embedded system', 0))
-  ...
-  if env['embedded'] == 1:
+    opts = Variables()
+    opts.Add(BoolVariable('embedded', 'build for an embedded system', 0))
+    ...
+    if env['embedded'] == 1:
     ...
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -34,7 +34,7 @@ Usage example:
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Variables/BoolVariable.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Variables/BoolVariable.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 __all__ = ['BoolVariable',]
 
@@ -51,7 +51,7 @@ def _text2bool(val):
     will be returned.
 
     See '__true_strings' and '__false_strings' for values considered
-    'true' or 'false respectivly.
+    'true' or 'false respectively.
 
     This is usable as 'converter' for SCons' Variables.
     """
@@ -74,7 +74,7 @@ def _validator(key, val, env):
 
 def BoolVariable(key, help, default):
     """
-    The input parameters describe a boolen option, thus they are
+    The input parameters describe a boolean option, thus they are
     returned with the correct converter and validator appended. The
     'help' text will by appended by '(yes|no) to show the valid
     valued. The result is usable for input to opts.Add().

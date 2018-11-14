@@ -10,7 +10,7 @@ selection method.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -32,18 +32,18 @@ selection method.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Tool/gfortran.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/gfortran.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import SCons.Util
 
-import fortran
+from . import fortran
 
 def generate(env):
     """Add Builders and construction variables for gfortran to an
     Environment."""
     fortran.generate(env)
 
-    for dialect in ['F77', 'F90', 'FORTRAN', 'F95', 'F03']:
+    for dialect in ['F77', 'F90', 'FORTRAN', 'F95', 'F03', 'F08']:
         env['%s' % dialect] = 'gfortran'
         env['SH%s' % dialect] = '$%s' % dialect
         if env['PLATFORM'] in ['cygwin', 'win32']:

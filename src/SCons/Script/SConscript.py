@@ -6,7 +6,7 @@ files.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -26,9 +26,8 @@ files.
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-from __future__ import division
 
-__revision__ = "src/engine/SCons/Script/SConscript.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Script/SConscript.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import SCons
 import SCons.Action
@@ -45,22 +44,15 @@ import SCons.Script.Main
 import SCons.Tool
 import SCons.Util
 
+from . import Main
+
 import collections
 import os
 import os.path
 import re
 import sys
 import traceback
-
-# The following variables used to live in this module.  Some
-# SConscript files out there may have referred to them directly as
-# SCons.Script.SConscript.*.  This is now supported by some special
-# handling towards the bottom of the SConscript.__init__.py module.
-#Arguments = {}
-#ArgList = []
-#BuildTargets = TargetList()
-#CommandLineTargets = []
-#DefaultTargets = []
+import time
 
 class SConscriptReturn(Exception):
     pass
@@ -79,7 +71,7 @@ def get_calling_namespaces():
     """Return the locals and globals for the function that called
     into this module in the current call stack."""
     try: 1//0
-    except ZeroDivisionError: 
+    except ZeroDivisionError:
         # Don't start iterating with the current stack-frame to
         # prevent creating reference cycles (f_back is safe).
         frame = sys.exc_info()[2].tb_frame.f_back
@@ -113,7 +105,7 @@ def compute_exports(exports):
                     retval[export] = loc[export]
                 except KeyError:
                     retval[export] = glob[export]
-    except KeyError, x:
+    except KeyError as x:
         raise SCons.Errors.UserError("Export of non-existent variable '%s'"%x)
 
     return retval
@@ -145,7 +137,7 @@ def Return(*vars, **kw):
         for var in fvars:
             for v in var.split():
                 retval.append(call_stack[-1].globals[v])
-    except KeyError, x:
+    except KeyError as x:
         raise SCons.Errors.UserError("Return of non-existent variable '%s'"%x)
 
     if len(retval) == 1:
@@ -174,7 +166,7 @@ def _SConscript(fs, *files, **kw):
         try:
             SCons.Script.sconscript_reading = SCons.Script.sconscript_reading + 1
             if fn == "-":
-                exec sys.stdin in call_stack[-1].globals
+                exec(sys.stdin.read(), call_stack[-1].globals)
             else:
                 if isinstance(fn, SCons.Node.Node):
                     f = fn
@@ -188,10 +180,10 @@ def _SConscript(fs, *files, **kw):
                 fs.chdir(top, change_os_dir=1)
                 if f.rexists():
                     actual = f.rfile()
-                    _file_ = open(actual.get_abspath(), "r")
+                    _file_ = open(actual.get_abspath(), "rb")
                 elif f.srcnode().rexists():
                     actual = f.srcnode().rfile()
-                    _file_ = open(actual.get_abspath(), "r")
+                    _file_ = open(actual.get_abspath(), "rb")
                 elif f.has_src_builder():
                     # The SConscript file apparently exists in a source
                     # code management system.  Build it, but then clear
@@ -201,7 +193,7 @@ def _SConscript(fs, *files, **kw):
                     f.built()
                     f.builder_set(None)
                     if f.exists():
-                        _file_ = open(f.get_abspath(), "r")
+                        _file_ = open(f.get_abspath(), "rb")
                 if _file_:
                     # Chdir to the SConscript directory.  Use a path
                     # name relative to the SConstruct file so that if
@@ -257,15 +249,23 @@ def _SConscript(fs, *files, **kw):
                         pass
                     try:
                         try:
-                            exec _file_ in call_stack[-1].globals
+#                            _file_ = SCons.Util.to_str(_file_)
+                            if Main.print_time:
+                                time1 = time.time()
+                            exec(compile(_file_.read(), _file_.name, 'exec'),
+                                 call_stack[-1].globals)
                         except SConscriptReturn:
                             pass
                     finally:
+                        if Main.print_time:
+                            time2 = time.time()
+                            print('SConscript:%s  took %0.3f ms' % (f.get_abspath(), (time2 - time1) * 1000.0))
+
                         if old_file is not None:
                             call_stack[-1].globals.update({__file__:old_file})
                 else:
                     SCons.Warnings.warn(SCons.Warnings.MissingSConscriptWarning,
-                             "Ignoring missing SConscript '%s'" % f.path)
+                             "Ignoring missing SConscript '%s'" % f.get_internal_path())
 
         finally:
             SCons.Script.sconscript_reading = SCons.Script.sconscript_reading - 1
@@ -282,7 +282,7 @@ def _SConscript(fs, *files, **kw):
                 rdir._create()  # Make sure there's a directory there.
                 try:
                     os.chdir(rdir.get_abspath())
-                except OSError, e:
+                except OSError as e:
                     # We still couldn't chdir there, so raise the error,
                     # but only if actions are being executed.
                     #
@@ -309,7 +309,24 @@ def SConscript_exception(file=sys.stderr):
     without cluttering the output with all of the internal calls leading
     up to where we exec the SConscript."""
     exc_type, exc_value, exc_tb = sys.exc_info()
-    traceback.print_exception(exc_type, exc_value, exc_tb, file=file)
+    tb = exc_tb
+    while tb and stack_bottom not in tb.tb_frame.f_locals:
+        tb = tb.tb_next
+    if not tb:
+        # We did not find our exec statement, so this was actually a bug
+        # in SCons itself.  Show the whole stack.
+        tb = exc_tb
+    stack = traceback.extract_tb(tb)
+    try:
+        type = exc_type.__name__
+    except AttributeError:
+        type = str(exc_type)
+        if type[:11] == "exceptions.":
+            type = type[11:]
+    file.write('%s: %s:\n' % (type, exc_value))
+    for fname, line, func, text in stack:
+        file.write('  File "%s", line %d:\n' % (fname, line))
+        file.write('    %s\n' % text)
 
 def annotate(node):
     """Annotate a node with the stack frame describing the
@@ -421,7 +438,7 @@ class SConsEnvironment(SCons.Environment.Base):
                     fname = fn.get_path(src_dir)
                     files = [os.path.join(str(variant_dir), fname)]
                 else:
-                    files = [fn.abspath]
+                    files = [fn.get_abspath()]
                 kw['src_dir'] = variant_dir
             self.fs.VariantDir(variant_dir, src_dir, duplicate)
 
@@ -429,7 +446,7 @@ class SConsEnvironment(SCons.Environment.Base):
 
     #
     # Public methods of an SConsEnvironment.  These get
-    # entry points in the global name space so they can be called
+    # entry points in the global namespace so they can be called
     # as global functions.
     #
 
@@ -444,21 +461,26 @@ class SConsEnvironment(SCons.Environment.Base):
 
     def EnsureSConsVersion(self, major, minor, revision=0):
         """Exit abnormally if the SCons version is not late enough."""
+        # split string to avoid replacement during build process
+        if SCons.__version__ == '__' + 'VERSION__':
+            SCons.Warnings.warn(SCons.Warnings.DevelopmentVersionWarning,
+                "EnsureSConsVersion is ignored for development version")
+            return
         scons_ver = self._get_major_minor_revision(SCons.__version__)
         if scons_ver < (major, minor, revision):
             if revision:
                 scons_ver_string = '%d.%d.%d' % (major, minor, revision)
             else:
                 scons_ver_string = '%d.%d' % (major, minor)
-            print "SCons %s or greater required, but you have SCons %s" % \
-                  (scons_ver_string, SCons.__version__)
+            print("SCons %s or greater required, but you have SCons %s" % \
+                  (scons_ver_string, SCons.__version__))
             sys.exit(2)
 
     def EnsurePythonVersion(self, major, minor):
         """Exit abnormally if the Python version is not late enough."""
         if sys.version_info < (major, minor):
             v = sys.version.split()[0]
-            print "Python %d.%d or greater required, but you have Python %s" %(major,minor,v)
+            print("Python %d.%d or greater required, but you have Python %s" %(major,minor,v))
             sys.exit(2)
 
     def Exit(self, value=0):
@@ -477,9 +499,9 @@ class SConsEnvironment(SCons.Environment.Base):
         name = self.subst(name)
         return SCons.Script.Main.GetOption(name)
 
-    def Help(self, text):
+    def Help(self, text, append=False):
         text = self.subst(text, raw=1)
-        SCons.Script.HelpFunction(text)
+        SCons.Script.HelpFunction(text, append=append)
 
     def Import(self, *vars):
         try:
@@ -497,7 +519,7 @@ class SConsEnvironment(SCons.Environment.Base):
                             globals[v] = exports[v]
                         else:
                             globals[v] = global_exports[v]
-        except KeyError,x:
+        except KeyError as x:
             raise SCons.Errors.UserError("Import of non-existent variable '%s'"%x)
 
     def SConscript(self, *ls, **kw):

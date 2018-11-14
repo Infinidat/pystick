@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -27,7 +27,7 @@ This file implements the warnings framework for SCons.
 
 """
 
-__revision__ = "src/engine/SCons/Warnings.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Warnings.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import sys
 
@@ -41,8 +41,10 @@ class WarningOnByDefault(Warning):
 
 
 # NOTE:  If you add a new warning class, add it to the man page, too!
-
 class TargetNotBuiltWarning(Warning): # Should go to OnByDefault
+    pass
+
+class CacheVersionWarning(WarningOnByDefault):
     pass
 
 class CacheWriteErrorWarning(Warning):
@@ -52,6 +54,9 @@ class CorruptSConsignWarning(WarningOnByDefault):
     pass
 
 class DependencyWarning(Warning):
+    pass
+
+class DevelopmentVersionWarning(WarningOnByDefault):
     pass
 
 class DuplicateEnvironmentWarning(WarningOnByDefault):

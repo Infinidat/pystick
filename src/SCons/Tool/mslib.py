@@ -9,7 +9,7 @@ selection method.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -31,7 +31,7 @@ selection method.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Tool/mslib.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/mslib.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import SCons.Defaults
 import SCons.Tool
@@ -39,7 +39,7 @@ import SCons.Tool.msvs
 import SCons.Tool.msvc
 import SCons.Util
 
-from MSCommon import msvc_exists, msvc_setup_env_once
+from .MSCommon import msvc_exists, msvc_setup_env_once
 
 def generate(env):
     """Add Builders and construction variables for lib to an Environment."""
@@ -50,7 +50,7 @@ def generate(env):
 
     env['AR']          = 'lib'
     env['ARFLAGS']     = SCons.Util.CLVar('/nologo')
-    env['ARCOM']       = "${TEMPFILE('$AR $ARFLAGS /OUT:$TARGET $SOURCES')}"
+    env['ARCOM']       = "${TEMPFILE('$AR $ARFLAGS /OUT:$TARGET $SOURCES','$ARCOMSTR')}"
     env['LIBPREFIX']   = ''
     env['LIBSUFFIX']   = '.lib'
 

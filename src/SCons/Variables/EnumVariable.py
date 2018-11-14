@@ -3,19 +3,19 @@
 This file defines the option type for SCons allowing only specified
 input-values.
 
-Usage example:
+Usage example::
 
-  opts = Variables()
-  opts.Add(EnumVariable('debug', 'debug output and symbols', 'no',
+    opts = Variables()
+    opts.Add(EnumVariable('debug', 'debug output and symbols', 'no',
                       allowed_values=('yes', 'no', 'full'),
                       map={}, ignorecase=2))
-  ...
-  if env['debug'] == 'full':
+    ...
+    if env['debug'] == 'full':
     ...
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -37,7 +37,7 @@ Usage example:
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Variables/EnumVariable.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Variables/EnumVariable.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 __all__ = ['EnumVariable',]
 
@@ -52,7 +52,7 @@ def _validator(key, val, env, vals):
 
 def EnumVariable(key, help, default, allowed_values, map={}, ignorecase=0):
     """
-    The input parameters describe a option with only certain values
+    The input parameters describe an option with only certain values
     allowed. They are returned with an appropriate converter and
     validator appended. The result is usable for input to
     Variables.Add().
@@ -65,20 +65,18 @@ def EnumVariable(key, help, default, allowed_values, map={}, ignorecase=0):
     for this option.
 
     The 'map'-dictionary may be used for converting the input value
-    into canonical values (eg. for aliases).
+    into canonical values (e.g. for aliases).
 
     'ignorecase' defines the behaviour of the validator:
 
-    If ignorecase == 0, the validator/converter are case-sensitive.
-    If ignorecase == 1, the validator/converter are case-insensitive.
-    If ignorecase == 2, the validator/converter is case-insensitive and
-                        the converted value will always be lower-case.
+        If ignorecase == 0, the validator/converter are case-sensitive.
+        If ignorecase == 1, the validator/converter are case-insensitive.
+        If ignorecase == 2, the validator/converter is case-insensitive and the converted value will always be lower-case.
 
-    The 'validator' tests whether the value is in the list of allowed
-    values. The 'converter' converts input values according to the
-    given 'map'-dictionary (unmapped input values are returned
-    unchanged). 
+    The 'validator' tests whether the value is in the list of allowed values. The 'converter' converts input values
+    according to the given 'map'-dictionary (unmapped input values are returned unchanged).
     """
+
     help = '%s (%s)' % (help, '|'.join(allowed_values))
     # define validator
     if ignorecase >= 1:

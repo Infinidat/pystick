@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Script/SConsOptions.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Script/SConsOptions.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import optparse
 import re
@@ -62,6 +62,7 @@ def diskcheck_convert(value):
         else:
             raise ValueError(v)
     return result
+
 
 class SConsValues(optparse.Values):
     """
@@ -112,7 +113,18 @@ class SConsValues(optparse.Values):
             try:
                 return self.__dict__['__SConscript_settings__'][attr]
             except KeyError:
-                return getattr(self.__dict__['__defaults__'], attr)
+                try:
+                    return getattr(self.__dict__['__defaults__'], attr)
+                except KeyError:
+                    # Added because with py3 this is a new class,
+                    # not a classic class, and due to the way
+                    # In that case it will create an object without
+                    # __defaults__, and then query for __setstate__
+                    # which will throw an exception of KeyError
+                    # deepcopy() is expecting AttributeError if __setstate__
+                    # is not available.
+                    raise AttributeError(attr)
+
 
     settable = [
         'clean',
@@ -127,6 +139,7 @@ class SConsValues(optparse.Values):
         'random',
         'stack_size',
         'warn',
+        'silent'
     ]
 
     def set_option(self, name, value):
@@ -161,7 +174,7 @@ class SConsValues(optparse.Values):
         elif name == 'diskcheck':
             try:
                 value = diskcheck_convert(value)
-            except ValueError, v:
+            except ValueError as v:
                 raise SCons.Errors.UserError("Not a valid diskcheck value: %s"%v)
             if 'diskcheck' not in self.__dict__:
                 # No --diskcheck= option was specified on the command line.
@@ -185,6 +198,7 @@ class SConsValues(optparse.Values):
             SCons.Warnings.process_warn_strings(value)
 
         self.__SConscript_settings__[name] = value
+
 
 class SConsOption(optparse.Option):
     def convert_value(self, opt, value):
@@ -268,7 +282,7 @@ class SConsOptionParser(optparse.OptionParser):
     preserve_unknown_options = False
 
     def error(self, msg):
-        # overriden OptionValueError exception handler
+        # overridden OptionValueError exception handler
         self.print_usage(sys.stderr)
         sys.stderr.write("SCons Error: %s\n" % msg)
         sys.exit(2)
@@ -319,7 +333,13 @@ class SConsOptionParser(optparse.OptionParser):
                     value = option.const
             elif len(rargs) < nargs:
                 if nargs == 1:
-                    self.error(_("%s option requires an argument") % opt)
+                    if not option.choices:
+                        self.error(_("%s option requires an argument") % opt)
+                    else:
+                        msg  = _("%s option requires an argument " % opt)
+                        msg += _("(choose from %s)"
+                                 % ', '.join(option.choices))
+                        self.error(msg)
                 else:
                     self.error(_("%s option requires %d arguments")
                                % (opt, nargs))
@@ -420,7 +440,7 @@ class SConsOptionParser(optparse.OptionParser):
         result = group.add_option(*args, **kw)
 
         if result:
-            # The option was added succesfully.  We now have to add the
+            # The option was added successfully.  We now have to add the
             # default value to our object that holds the default values
             # (so that an attempt to fetch the option's attribute will
             # yield the default value when not overridden) and then
@@ -443,11 +463,6 @@ class SConsIndentedHelpFormatter(optparse.IndentedHelpFormatter):
         "SCons Options."  Unfortunately, we have to do this here,
         because those titles are hard-coded in the optparse calls.
         """
-        if heading == 'options':
-            # The versions of optparse.py shipped with Pythons 2.3 and
-            # 2.4 pass this in uncapitalized; override that so we get
-            # consistent output on all versions.
-            heading = "Options"
         if heading == 'Options':
             heading = "SCons Options"
         return optparse.IndentedHelpFormatter.format_heading(self, heading)
@@ -482,13 +497,7 @@ class SConsIndentedHelpFormatter(optparse.IndentedHelpFormatter):
         #           read data from FILENAME
         result = []
 
-        try:
-            opts = self.option_strings[option]
-        except AttributeError:
-            # The Python 2.3 version of optparse attaches this to
-            # to the option argument, not to this object.
-            opts = option.option_strings
-
+        opts = self.option_strings[option]
         opt_width = self.help_position - self.current_indent - 2
         if len(opts) > opt_width:
             wrapper = textwrap.TextWrapper(width=self.width,
@@ -503,14 +512,7 @@ class SConsIndentedHelpFormatter(optparse.IndentedHelpFormatter):
         result.append(opts)
         if option.help:
 
-            try:
-                expand_default = self.expand_default
-            except AttributeError:
-                # The HelpFormatter base class in the Python 2.3 version
-                # of optparse has no expand_default() method.
-                help_text = option.help
-            else:
-                help_text = expand_default(option)
+            help_text = self.expand_default(option)
 
             # SCons:  indent every line of the help text but the first.
             wrapper = textwrap.TextWrapper(width=self.help_width,
@@ -523,34 +525,6 @@ class SConsIndentedHelpFormatter(optparse.IndentedHelpFormatter):
         elif opts[-1] != "\n":
             result.append("\n")
         return "".join(result)
-
-    # For consistent help output across Python versions, we provide a
-    # subclass copy of format_option_strings() and these two variables.
-    # This is necessary (?) for Python2.3, which otherwise concatenates
-    # a short option with its metavar.
-    _short_opt_fmt = "%s %s"
-    _long_opt_fmt = "%s=%s"
-
-    def format_option_strings(self, option):
-        """Return a comma-separated list of option strings & metavariables."""
-        if option.takes_value():
-            metavar = option.metavar or option.dest.upper()
-            short_opts = []
-            for sopt in option._short_opts:
-                short_opts.append(self._short_opt_fmt % (sopt, metavar))
-            long_opts = []
-            for lopt in option._long_opts:
-                long_opts.append(self._long_opt_fmt % (lopt, metavar))
-        else:
-            short_opts = option._short_opts
-            long_opts = option._long_opts
-
-        if self.short_first:
-            opts = short_opts + long_opts
-        else:
-            opts = long_opts + short_opts
-
-        return ", ".join(opts)
 
 def Parser(version):
     """
@@ -645,18 +619,12 @@ def Parser(version):
 
     config_options = ["auto", "force" ,"cache"]
 
-    def opt_config(option, opt, value, parser, c_options=config_options):
-        if not value in c_options:
-            raise OptionValueError(opt_invalid('config', value, c_options))
-        setattr(parser.values, option.dest, value)
-
     opt_config_help = "Controls Configure subsystem: %s." \
                       % ", ".join(config_options)
 
     op.add_option('--config',
-                  nargs=1, type="string",
+                  nargs=1, choices=config_options,
                   dest="config", default="auto",
-                  action="callback", callback=opt_config,
                   help = opt_config_help,
                   metavar="MODE")
 
@@ -684,7 +652,7 @@ def Parser(version):
         for value in value__.split(','):
             if value in debug_options:
                 parser.values.debug.append(value)
-            elif value in deprecated_debug_options.keys():
+            elif value in list(deprecated_debug_options.keys()):
                 parser.values.debug.append(value)
                 try:
                     parser.values.delayed_warnings
@@ -709,7 +677,7 @@ def Parser(version):
     def opt_diskcheck(option, opt, value, parser):
         try:
             diskcheck_value = diskcheck_convert(value)
-        except ValueError, e:
+        except ValueError as e:
             raise OptionValueError("`%s' is not a valid diskcheck type" % e)
         setattr(parser.values, option.dest, diskcheck_value)
 
@@ -876,7 +844,7 @@ def Parser(version):
     tree_options = ["all", "derived", "prune", "status"]
 
     def opt_tree(option, opt, value, parser, tree_options=tree_options):
-        import Main
+        from . import Main
         tp = Main.TreePrinter()
         for o in value.split(','):
             if o == 'all':

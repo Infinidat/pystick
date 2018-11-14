@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -21,13 +21,13 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/PathList.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/PathList.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 __doc__ = """SCons.PathList
 
 A module for handling lists of directory paths (the sort of things
 that get set as CPPPATH, LIBPATH, etc.) with as much caching of data and
-efficiency as we can while still keeping the evaluation delayed so that we
+efficiency as we can, while still keeping the evaluation delayed so that we
 Do the Right Thing (almost) regardless of how the variable is specified.
 
 """
@@ -104,11 +104,11 @@ class _PathList(object):
         pl = []
         for p in pathlist:
             try:
-                index = p.find('$')
+                found = '$' in p
             except (AttributeError, TypeError):
                 type = TYPE_OBJECT
             else:
-                if index == -1:
+                if not found:
                     type = TYPE_STRING_NO_SUBST
                 else:
                     type = TYPE_STRING_SUBST
@@ -171,11 +171,6 @@ class PathListCache(object):
     cheaply avoid re-parsing both values of CPPPATH by using the
     common value from this cache.
     """
-    if SCons.Memoize.use_memoizer:
-        __metaclass__ = SCons.Memoize.Memoized_Metaclass
-
-    memoizer_counters = []
-
     def __init__(self):
         self._memo = {}
 
@@ -196,8 +191,7 @@ class PathListCache(object):
             pathlist = tuple(SCons.Util.flatten(pathlist))
         return pathlist
 
-    memoizer_counters.append(SCons.Memoize.CountDict('PathList', _PathList_key))
-
+    @SCons.Memoize.CountDictCall(_PathList_key)
     def PathList(self, pathlist):
         """
         Returns the cached _PathList object for the specified pathlist,

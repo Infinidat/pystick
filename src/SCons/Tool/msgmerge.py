@@ -3,7 +3,7 @@
 Tool specific initialization for `msgmerge` tool.
 """
 
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 # 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,7 +24,7 @@ Tool specific initialization for `msgmerge` tool.
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-__revision__ = "src/engine/SCons/Tool/msgmerge.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/msgmerge.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 #############################################################################
 def _update_or_init_po_files(target, source, env):
@@ -58,7 +58,7 @@ def _POUpdateBuilderWrapper(env, target=None, source=_null, **kw):
   if source is _null:
     if 'POTDOMAIN' in kw:
       domain = kw['POTDOMAIN']
-    elif env.has_key('POTDOMAIN') and env['POTDOMAIN']:
+    elif 'POTDOMAIN' in env and env['POTDOMAIN']:
       domain = env['POTDOMAIN']
     else:
       domain = 'messages'

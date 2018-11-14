@@ -12,7 +12,7 @@ it goes here.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -34,13 +34,19 @@ it goes here.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Script/__init__.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Script/__init__.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import time
 start_time = time.time()
 
 import collections
 import os
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 import sys
 
 # Special chicken-and-egg handling of the "--debug=memoizer" flag:
@@ -66,7 +72,7 @@ if "--debug=memoizer" in _args:
     except SCons.Warnings.Warning:
         # Some warning was thrown.  Arrange for it to be displayed
         # or not after warnings are configured.
-        import Main
+        from . import Main
         exc_type, exc_value, tb = sys.exc_info()
         Main.delayed_warnings.append((exc_type, exc_value))
 del _args
@@ -85,7 +91,7 @@ import SCons.Util
 import SCons.Variables
 import SCons.Defaults
 
-import Main
+from . import Main
 
 main                    = Main.main
 
@@ -107,6 +113,7 @@ QuestionTask            = Main.QuestionTask
 #SConscriptSettableOptions = Main.SConscriptSettableOptions
 
 AddOption               = Main.AddOption
+PrintHelp               = Main.PrintHelp
 GetOption               = Main.GetOption
 SetOption               = Main.SetOption
 Progress                = Main.Progress
@@ -128,7 +135,7 @@ GetBuildFailures        = Main.GetBuildFailures
 #repositories            = Main.repositories
 
 #
-import SConscript
+from . import SConscript
 _SConscript = SConscript
 
 call_stack              = _SConscript.call_stack
@@ -258,12 +265,19 @@ def _Set_Default_Targets(env, tlist):
 #
 help_text = None
 
-def HelpFunction(text):
+def HelpFunction(text, append=False):
     global help_text
-    if SCons.Script.help_text is None:
-        SCons.Script.help_text = text
-    else:
-        help_text = help_text + text
+    if help_text is None:
+        if append:
+            s = StringIO()
+            PrintHelp(s)  
+            help_text = s.getvalue()
+            s.close()
+        else:
+            help_text = ""
+
+    help_text= help_text + text
+
 
 #
 # Will be non-zero if we are reading an SConscript file.
@@ -318,10 +332,12 @@ GlobalDefaultEnvironmentFunctions = [
     'Ignore',
     'Install',
     'InstallAs',
+    'InstallVersionedLib',
     'Literal',
     'Local',
     'ParseDepends',
     'Precious',
+    'PyPackageDir',
     'Repository',
     'Requires',
     'SConsignFile',
@@ -344,6 +360,7 @@ GlobalDefaultBuilders = [
     'Java',
     'JavaH',
     'Library',
+    'LoadableModule',
     'M4',
     'MSVSProject',
     'Object',
@@ -364,7 +381,7 @@ GlobalDefaultBuilders = [
 ]
 
 for name in GlobalDefaultEnvironmentFunctions + GlobalDefaultBuilders:
-    exec "%s = _SConscript.DefaultEnvironmentCall(%s)" % (name, repr(name))
+    exec ("%s = _SConscript.DefaultEnvironmentCall(%s)" % (name, repr(name)))
 del name
 
 # There are a handful of variables that used to live in the

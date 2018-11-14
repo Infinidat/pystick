@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,17 +20,24 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from __future__ import print_function
+
+import sys
+
 __doc__ = """
-Generic Taskmaster module for the SCons build engine.
-
-This module contains the primary interface(s) between a wrapping user
-interface and the SCons build engine.  There are two key classes here:
-
+    Generic Taskmaster module for the SCons build engine.
+    =====================================================
+    
+    This module contains the primary interface(s) between a wrapping user
+    interface and the SCons build engine.  There are two key classes here:
+    
     Taskmaster
+    ----------
         This is the main engine for walking the dependency graph and
         calling things to decide what does or doesn't need to be built.
 
     Task
+    ----
         This is the base class for allowing a wrapping interface to
         decide what does or doesn't actually need to be done.  The
         intention is for a wrapping interface to subclass this as
@@ -38,7 +45,7 @@ interface and the SCons build engine.  There are two key classes here:
 
         The canonical example is the SCons native Python interface,
         which has Task subclasses that handle its specific behavior,
-        like printing "`foo' is up to date" when a top-level target
+        like printing "'foo' is up to date" when a top-level target
         doesn't need to be built, and handling the -c option by removing
         targets as its "build" action.  There is also a separate subclass
         for suppressing this output when the -q option is used.
@@ -47,7 +54,7 @@ interface and the SCons build engine.  There are two key classes here:
         target(s) that it decides need to be evaluated and/or built.
 """
 
-__revision__ = "src/engine/SCons/Taskmaster.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Taskmaster.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 from itertools import chain
 import operator
@@ -107,7 +114,7 @@ fmt = "%(considered)3d "\
 
 def dump_stats():
     for n in sorted(StatsNodes, key=lambda a: str(a)):
-        print (fmt % n.stats.__dict__) + str(n)
+        print((fmt % n.attributes.stats.__dict__) + str(n))
 
 
 
@@ -122,7 +129,7 @@ class Task(object):
     aspects of controlling a build, so any given application
     *should* be able to do what it wants by sub-classing this
     class and overriding methods as appropriate.  If an application
-    needs to customze something by sub-classing Taskmaster (or
+    needs to customize something by sub-classing Taskmaster (or
     some other build engine class), we should first try to migrate
     that functionality into this class.
 
@@ -147,7 +154,7 @@ class Task(object):
 
         This hook gets called as part of preparing a task for execution
         (that is, a Node to be built).  As part of figuring out what Node
-        should be built next, the actually target list may be altered,
+        should be built next, the actual target list may be altered,
         along with a message describing the alteration.  The calling
         interface can subclass Task and provide a concrete implementation
         of this method to see those messages.
@@ -191,13 +198,13 @@ class Task(object):
         executor.prepare()
         for t in executor.get_action_targets():
             if print_prepare:
-                print "Preparing target %s..."%t
+                print("Preparing target %s..."%t)
                 for s in t.side_effects:
-                    print "...with side-effect %s..."%s
+                    print("...with side-effect %s..."%s)
             t.prepare()
             for s in t.side_effects:
                 if print_prepare:
-                    print "...Preparing side-effect %s..."%s
+                    print("...Preparing side-effect %s..."%s)
                 s.prepare()
 
     def get_target(self):
@@ -242,7 +249,7 @@ class Task(object):
                 #
                 for t in cached_targets:
                     try:
-                        t.fs.unlink(t.path)
+                        t.fs.unlink(t.get_internal_path())
                     except (IOError, OSError):
                         pass
                 self.targets[0].build()
@@ -256,7 +263,7 @@ class Task(object):
             raise
         except SCons.Errors.BuildError:
             raise
-        except Exception, e:
+        except Exception as e:
             buildError = SCons.Errors.convert_to_BuildError(e)
             buildError.node = self.targets[0]
             buildError.exc_info = sys.exc_info()
@@ -305,7 +312,7 @@ class Task(object):
                     t.push_to_cache()
                 t.built()
                 t.visited()
-                if (not print_prepare and 
+                if (not print_prepare and
                     (not hasattr(self, 'options') or not self.options.debug_includes)):
                     t.release_target_info()
             else:
@@ -402,7 +409,7 @@ class Task(object):
                 t.disambiguate().make_ready()
                 is_up_to_date = not t.has_builder() or \
                                 (not t.always_build and t.is_up_to_date())
-            except EnvironmentError, e:
+            except EnvironmentError as e:
                 raise SCons.Errors.BuildError(node=t, errstr=e.strerror, filename=e.filename)
 
             if not is_up_to_date:
@@ -423,7 +430,7 @@ class Task(object):
                 # parallel build...)
                 t.visited()
                 t.set_state(NODE_UP_TO_DATE)
-                if (not print_prepare and 
+                if (not print_prepare and
                     (not hasattr(self, 'options') or not self.options.debug_includes)):
                     t.release_target_info()
 
@@ -537,7 +544,23 @@ class Task(object):
         except ValueError:
             exc_type, exc_value = exc
             exc_traceback = None
-        raise exc_type, exc_value, exc_traceback
+
+        # raise exc_type(exc_value).with_traceback(exc_traceback)
+        if sys.version_info[0] == 2:
+            exec("raise exc_type, exc_value, exc_traceback")
+        else: #  sys.version_info[0] == 3:
+            if isinstance(exc_value, Exception): #hasattr(exc_value, 'with_traceback'):
+                # If exc_value is an exception, then just reraise
+                exec("raise exc_value.with_traceback(exc_traceback)")
+            else:
+                # else we'll create an exception using the value and raise that
+                exec("raise exc_type(exc_value).with_traceback(exc_traceback)")
+
+
+        # raise e.__class__, e.__class__(e), sys.exc_info()[2]
+        #     exec("raise exc_type(exc_value).with_traceback(exc_traceback)")
+
+
 
 class AlwaysTask(Task):
     def needs_execute(self):
@@ -664,19 +687,19 @@ class Taskmaster(object):
         its parent node.
 
         A pending child can occur when the Taskmaster completes a loop
-        through a cycle. For example, lets imagine a graph made of
-        three node (A, B and C) making a cycle. The evaluation starts
-        at node A. The taskmaster first consider whether node A's
+        through a cycle. For example, let's imagine a graph made of
+        three nodes (A, B and C) making a cycle. The evaluation starts
+        at node A. The Taskmaster first considers whether node A's
         child B is up-to-date. Then, recursively, node B needs to
         check whether node C is up-to-date. This leaves us with a
-        dependency graph looking like:
+        dependency graph looking like::
 
-                                      Next candidate \
-                                                      \
-        Node A (Pending) --> Node B(Pending) --> Node C (NoState)
-                ^                                     |
-                |                                     |
-                +-------------------------------------+
+                                          Next candidate \
+                                                          \
+            Node A (Pending) --> Node B(Pending) --> Node C (NoState)
+                    ^                                     |
+                    |                                     |
+                    +-------------------------------------+
 
         Now, when the Taskmaster examines the Node C's child Node A,
         it finds that Node A is in the "pending" state. Therefore,
@@ -685,15 +708,14 @@ class Taskmaster(object):
         Pending children indicate that the Taskmaster has potentially
         loop back through a cycle. We say potentially because it could
         also occur when a DAG is evaluated in parallel. For example,
-        consider the following graph:
+        consider the following graph::
 
-
-        Node A (Pending) --> Node B(Pending) --> Node C (Pending) --> ...
-                |                                     ^
-                |                                     |
-                +----------> Node D (NoState) --------+
-                                  /
-                  Next candidate /
+            Node A (Pending) --> Node B(Pending) --> Node C (Pending) --> ...
+                    |                                     ^
+                    |                                     |
+                    +----------> Node D (NoState) --------+
+                                      /
+                      Next candidate /
 
         The Taskmaster first evaluates the nodes A, B, and C and
         starts building some children of node C. Assuming, that the
@@ -761,7 +783,7 @@ class Taskmaster(object):
         self.ready_exc = None
 
         T = self.trace
-        if T: T.write(u'\n' + self.trace_message('Looking for a node to evaluate'))
+        if T: T.write(SCons.Util.UnicodeType('\n') + self.trace_message('Looking for a node to evaluate'))
 
         while True:
             node = self.next_candidate()
@@ -781,10 +803,10 @@ class Taskmaster(object):
             #     return node
 
             if CollectStats:
-                if not hasattr(node, 'stats'):
-                    node.stats = Stats()
+                if not hasattr(node.attributes, 'stats'):
+                    node.attributes.stats = Stats()
                     StatsNodes.append(node)
-                S = node.stats
+                S = node.attributes.stats
                 S.considered = S.considered + 1
             else:
                 S = None
@@ -810,7 +832,7 @@ class Taskmaster(object):
                 self.ready_exc = (SCons.Errors.ExplicitExit, e)
                 if T: T.write(self.trace_message('       SystemExit'))
                 return node
-            except Exception, e:
+            except Exception as e:
                 # We had a problem just trying to figure out the
                 # children (like a child couldn't be linked in to a
                 # VariantDir, or a Scanner threw something).  Arrange to
@@ -840,13 +862,13 @@ class Taskmaster(object):
                 if childstate <= NODE_EXECUTING:
                     children_not_ready.append(child)
 
-
             # These nodes have not even been visited yet.  Add
             # them to the list so that on some next pass we can
             # take a stab at evaluating them (or their children).
             children_not_visited.reverse()
             self.candidates.extend(self.order(children_not_visited))
-            #if T and children_not_visited:
+
+            # if T and children_not_visited:
             #    T.write(self.trace_message('     adding to candidates: %s' % map(str, children_not_visited)))
             #    T.write(self.trace_message('     candidates now: %s\n' % map(str, self.candidates)))
 
@@ -943,15 +965,15 @@ class Taskmaster(object):
         executor = node.get_executor()
         if executor is None:
             return None
-        
+
         tlist = executor.get_all_targets()
 
         task = self.tasker(self, tlist, node in self.original_top, node)
         try:
             task.make_ready()
-        except:
+        except Exception as e :
             # We had a problem just trying to get this task ready (like
-            # a child couldn't be linked in to a VariantDir when deciding
+            # a child couldn't be linked to a VariantDir when deciding
             # whether this node is current).  Arrange to raise the
             # exception when the Task is "executed."
             self.ready_exc = sys.exc_info()

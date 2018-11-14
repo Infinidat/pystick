@@ -9,7 +9,7 @@ selection method.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -31,7 +31,7 @@ selection method.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Tool/mingw.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/mingw.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import os
 import os.path
@@ -86,7 +86,8 @@ def shlib_emitter(target, source, env):
     no_import_lib = env.get('no_import_lib', 0)
 
     if not dll:
-        raise SCons.Errors.UserError("A shared library should have exactly one target with the suffix: %s" % env.subst("$SHLIBSUFFIX"))
+        raise SCons.Errors.UserError("A shared library should have exactly one target with the suffix: %s Target(s) are:%s" %  \
+            (env.subst("$SHLIBSUFFIX"), ",".join([str(t) for t in target])))
     
     if not no_import_lib and \
        not env.FindIxes(target, 'LIBPREFIX', 'LIBSUFFIX'):
@@ -146,6 +147,7 @@ def generate(env):
     env['SHLINKCOM']   = shlib_action
     env['LDMODULECOM'] = shlib_action
     env.Append(SHLIBEMITTER = [shlib_emitter])
+    env.Append(LDMODULEEMITTER = [shlib_emitter])
     env['AS'] = 'as'
 
     env['WIN32DEFPREFIX']        = ''

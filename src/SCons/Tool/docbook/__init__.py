@@ -10,7 +10,7 @@ selection method.
 """
 
 #
-# Copyright (c) 2001-7,2010 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -43,6 +43,8 @@ import SCons.Script
 import SCons.Tool
 import SCons.Util
 
+
+__debug_tool_location = False
 # Get full path to this script
 scriptpath = os.path.dirname(os.path.realpath(__file__))
 
@@ -157,6 +159,11 @@ def __create_output_dir(base_dir):
 #
 # Supported command line tools and their call "signature"
 #
+xsltproc_com_priority = ['xsltproc', 'saxon', 'saxon-xslt', 'xalan']
+
+# TODO: Set minimum version of saxon-xslt to be 8.x (lower than this only supports xslt 1.0.
+#       see: http://saxon.sourceforge.net/saxon6.5.5/
+#       see: http://saxon.sourceforge.net/
 xsltproc_com = {'xsltproc' : '$DOCBOOK_XSLTPROC $DOCBOOK_XSLTPROCFLAGS -o $TARGET $DOCBOOK_XSL $SOURCE',
                 'saxon' : '$DOCBOOK_XSLTPROC $DOCBOOK_XSLTPROCFLAGS -o $TARGET $DOCBOOK_XSL $SOURCE $DOCBOOK_XSLTPROCPARAMS',
                 'saxon-xslt' : '$DOCBOOK_XSLTPROC $DOCBOOK_XSLTPROCFLAGS -o $TARGET $DOCBOOK_XSL $SOURCE $DOCBOOK_XSLTPROCPARAMS',
@@ -166,19 +173,27 @@ fop_com = {'fop' : '$DOCBOOK_FOP $DOCBOOK_FOPFLAGS -fo $SOURCE -pdf $TARGET',
            'xep' : '$DOCBOOK_FOP $DOCBOOK_FOPFLAGS -valid -fo $SOURCE -pdf $TARGET',
            'jw' : '$DOCBOOK_FOP $DOCBOOK_FOPFLAGS -f docbook -b pdf $SOURCE -o $TARGET'}
 
-def __detect_cl_tool(env, chainkey, cdict):
+def __detect_cl_tool(env, chainkey, cdict, cpriority=None):
     """
     Helper function, picks a command line tool from the list
     and initializes its environment variables.
     """
     if env.get(chainkey,'') == '':
         clpath = ''
-        for cltool in cdict:
+
+        if cpriority is None:
+            cpriority = cdict.keys()
+        for cltool in cpriority:
+            if __debug_tool_location:
+                print("DocBook: Looking for %s"%cltool)
             clpath = env.WhereIs(cltool)
             if clpath:
+                if __debug_tool_location:
+                    print("DocBook: Found:%s"%cltool)
                 env[chainkey] = clpath
                 if not env[chainkey + 'COM']:
                     env[chainkey + 'COM'] = cdict[cltool]
+                break
 
 def _detect(env):
     """
@@ -192,10 +207,10 @@ def _detect(env):
         
     if ((not has_libxml2 and not has_lxml) or (prefer_xsltproc)):
         # Try to find the XSLT processors
-        __detect_cl_tool(env, 'DOCBOOK_XSLTPROC', xsltproc_com)
+        __detect_cl_tool(env, 'DOCBOOK_XSLTPROC', xsltproc_com, xsltproc_com_priority)
         __detect_cl_tool(env, 'DOCBOOK_XMLLINT', xmllint_com)
 
-    __detect_cl_tool(env, 'DOCBOOK_FOP', fop_com)
+    __detect_cl_tool(env, 'DOCBOOK_FOP', fop_com, ['fop','xep','jw'])
 
 #
 # Scanners
@@ -242,7 +257,7 @@ def __xml_scan(node, env, path, arg):
 
     styledoc = libxml2.parseFile(xsl_file)
     style = libxslt.parseStylesheetDoc(styledoc)
-    doc = libxml2.parseFile(str(node))
+    doc = libxml2.readFile(str(node), None, libxml2.XML_PARSE_NOENT)
     result = style.applyStylesheet(doc, None)
 
     depfiles = []
@@ -335,7 +350,7 @@ def __build_lxml(target, source, env):
         result = transform(doc)
         
     try:
-        of = open(str(target[0]), "w")
+        of = open(str(target[0]), "wb")
         of.write(of.write(etree.tostring(result, pretty_print=True)))
         of.close()
     except:
@@ -348,7 +363,7 @@ def __xinclude_libxml2(target, source, env):
     Resolving XIncludes, using the libxml2 module.
     """
     doc = libxml2.readFile(str(source[0]), None, libxml2.XML_PARSE_NOENT)
-    doc.xincludeProcess()
+    doc.xincludeProcessFlags(libxml2.XML_PARSE_NOENT)
     doc.saveFile(str(target[0]))
     doc.freeDoc()
 
@@ -429,6 +444,11 @@ def DocbookEpub(env, target, source=None, *args, **kw):
         mime_file.close()
         zf.write(mime_file.name, compress_type = zipfile.ZIP_STORED)
         for s in source:
+            if os.path.isfile(str(s)):
+                head, tail = os.path.split(str(s))
+                if not head:
+                    continue
+                s = head
             for dirpath, dirnames, filenames in os.walk(str(s)):
                 for fname in filenames:
                     path = os.path.join(dirpath, fname)
@@ -443,7 +463,7 @@ def DocbookEpub(env, target, source=None, *args, **kw):
         Ensure all the resources in the manifest are present in the OEBPS directory.
         """
         hrefs = []
-        content_file = os.path.join(source[0].abspath, 'content.opf')
+        content_file = os.path.join(source[0].get_abspath(), 'content.opf')
         if not os.path.isfile(content_file):
             return
         
@@ -456,7 +476,7 @@ def DocbookEpub(env, target, source=None, *args, **kw):
             # Create xpath context
             xpath_context = doc.xpathNewContext()
             # Register namespaces
-            for key, val in nsmap.iteritems():
+            for key, val in nsmap.items():
                 xpath_context.xpathRegisterNs(key, val)
 
             if hasattr(opf, 'xpathEval') and xpath_context:
@@ -486,9 +506,9 @@ def DocbookEpub(env, target, source=None, *args, **kw):
         for href in hrefs:
             # If the resource was not already created by DocBook XSL itself, 
             # copy it into the OEBPS folder
-            referenced_file = os.path.join(source[0].abspath, href)
+            referenced_file = os.path.join(source[0].get_abspath(), href)
             if not os.path.exists(referenced_file):
-                shutil.copy(href, os.path.join(source[0].abspath, href))
+                shutil.copy(href, os.path.join(source[0].get_abspath(), href))
         
     # Init list of targets/sources
     target, source = __extend_targets_sources(target, source)
@@ -847,30 +867,16 @@ def generate(env):
         )
     _detect(env)
 
-    try:
-        env.AddMethod(DocbookEpub, "DocbookEpub")
-        env.AddMethod(DocbookHtml, "DocbookHtml")
-        env.AddMethod(DocbookHtmlChunked, "DocbookHtmlChunked")
-        env.AddMethod(DocbookHtmlhelp, "DocbookHtmlhelp")
-        env.AddMethod(DocbookPdf, "DocbookPdf")
-        env.AddMethod(DocbookMan, "DocbookMan")
-        env.AddMethod(DocbookSlidesPdf, "DocbookSlidesPdf")
-        env.AddMethod(DocbookSlidesHtml, "DocbookSlidesHtml")
-        env.AddMethod(DocbookXInclude, "DocbookXInclude")
-        env.AddMethod(DocbookXslt, "DocbookXslt")
-    except AttributeError:
-        # Looks like we use a pre-0.98 version of SCons...
-        from SCons.Script.SConscript import SConsEnvironment
-        SConsEnvironment.DocbookEpub = DocbookEpub        
-        SConsEnvironment.DocbookHtml = DocbookHtml
-        SConsEnvironment.DocbookHtmlChunked = DocbookHtmlChunked
-        SConsEnvironment.DocbookHtmlhelp = DocbookHtmlhelp
-        SConsEnvironment.DocbookPdf = DocbookPdf
-        SConsEnvironment.DocbookMan = DocbookMan
-        SConsEnvironment.DocbookSlidesPdf = DocbookSlidesPdf
-        SConsEnvironment.DocbookSlidesHtml = DocbookSlidesHtml
-        SConsEnvironment.DocbookXInclude = DocbookXInclude
-        SConsEnvironment.DocbookXslt = DocbookXslt
+    env.AddMethod(DocbookEpub, "DocbookEpub")
+    env.AddMethod(DocbookHtml, "DocbookHtml")
+    env.AddMethod(DocbookHtmlChunked, "DocbookHtmlChunked")
+    env.AddMethod(DocbookHtmlhelp, "DocbookHtmlhelp")
+    env.AddMethod(DocbookPdf, "DocbookPdf")
+    env.AddMethod(DocbookMan, "DocbookMan")
+    env.AddMethod(DocbookSlidesPdf, "DocbookSlidesPdf")
+    env.AddMethod(DocbookSlidesHtml, "DocbookSlidesHtml")
+    env.AddMethod(DocbookXInclude, "DocbookXInclude")
+    env.AddMethod(DocbookXslt, "DocbookXslt")
 
 
 def exists(env):

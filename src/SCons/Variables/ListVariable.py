@@ -4,20 +4,20 @@ This file defines the option type for SCons implementing 'lists'.
 
 A 'list' option may either be 'all', 'none' or a list of names
 separated by comma. After the option has been processed, the option
-value holds either the named list elements, all list elemens or no
+value holds either the named list elements, all list elements or no
 list elements at all.
 
-Usage example:
+Usage example::
 
-  list_of_libs = Split('x11 gl qt ical')
+    list_of_libs = Split('x11 gl qt ical')
 
-  opts = Variables()
-  opts.Add(ListVariable('shared',
+    opts = Variables()
+    opts.Add(ListVariable('shared',
                       'libraries to build as shared libraries',
                       'all',
                       elems = list_of_libs))
-  ...
-  for lib in list_of_libs:
+    ...
+    for lib in list_of_libs:
      if lib in env['shared']:
          env.SharedObject(...)
      else:
@@ -25,7 +25,7 @@ Usage example:
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -46,9 +46,9 @@ Usage example:
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-__revision__ = "src/engine/SCons/Variables/ListVariable.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Variables/ListVariable.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
-# Know Bug: This should behave like a Set-Type, but does not really,
+# Known Bug: This should behave like a Set-Type, but does not really,
 # since elements can occur twice.
 
 __all__ = ['ListVariable',]
@@ -106,14 +106,14 @@ def _converter(val, allowedElems, mapdict):
 ## def _validator(key, val, env):
 ##     """
 ##     """
-##     # todo: write validater for pgk list
+##     # todo: write validator for pgk list
 ##     return 1
 
 
 def ListVariable(key, help, default, names, map={}):
     """
     The input parameters describe a 'package list' option, thus they
-    are returned with the correct converter and validater appended. The
+    are returned with the correct converter and validator appended. The
     result is usable for input to opts.Add() .
 
     A 'package list' option may either be 'all', 'none' or a list of

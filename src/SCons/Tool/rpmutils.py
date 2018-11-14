@@ -10,11 +10,11 @@ mimic the exact naming rules of the RPM source code.
 They were directly derived from the file "rpmrc.in" of the version
 rpm-4.9.1.3. For updating to a more recent version of RPM, this Python
 script can be used standalone. The usage() function below shows the
-exact syntax. 
+exact syntax.
 
 """
 
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -34,11 +34,15 @@ exact syntax.
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from __future__ import print_function
 
-__revision__ = "src/engine/SCons/Tool/rpmutils.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/rpmutils.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 
 import platform
+import subprocess
+
+import SCons.Util
 
 # Start of rpmrc dictionaries (Marker, don't change or remove!)
 os_canon = {
@@ -435,20 +439,30 @@ arch_canon = {
 
 # End of rpmrc dictionaries (Marker, don't change or remove!)
 
-def defaultMachine():
+def defaultMachine(use_rpm_default=True):
     """ Return the canonicalized machine name. """
-    rmachine = platform.machine()
-    
-    # Try to lookup the string in the canon table
-    if rmachine in arch_canon:
-        rmachine = arch_canon[rmachine][0]
-    
+
+    if use_rpm_default:
+        try:
+            # This should be the most reliable way to get the default arch
+            rmachine = subprocess.check_output(['rpm', '--eval=%_target_cpu'], shell=False).rstrip()
+            rmachine = SCons.Util.to_str(rmachine)
+        except Exception as e:
+            # Something went wrong, try again by looking up platform.machine()
+            return defaultMachine(False)
+    else:
+        rmachine = platform.machine()
+
+        # Try to lookup the string in the canon table
+        if rmachine in arch_canon:
+            rmachine = arch_canon[rmachine][0]
+
     return rmachine
 
 def defaultSystem():
     """ Return the canonicalized system name. """
     rsystem = platform.system()
-    
+
     # Try to lookup the string in the canon tables
     if rsystem in os_canon:
         rsystem = os_canon[rsystem][0]
@@ -491,7 +505,7 @@ def updateRpmDicts(rpmrc, pyfile):
                 key = tokens[0]
                 if key in sections:
                     # Have we met this section before?
-                    if not data.has_key(tokens[0]):
+                    if tokens[0] not in data:
                         # No, so insert it
                         data[key] = {}
                     # Insert data
@@ -509,7 +523,7 @@ def updateRpmDicts(rpmrc, pyfile):
                 if l.startswith('# Start of rpmrc dictionaries'):
                     pm = 1
                     # Write data sections to single dictionaries
-                    for key, entries in data.iteritems():
+                    for key, entries in data.items():
                         out.write("%s = {\n" % key)
                         for arch in sorted(entries.keys()):
                             out.write("  '%s' : ['%s'],\n" % (arch, "','".join(entries[arch])))
@@ -519,11 +533,11 @@ def updateRpmDicts(rpmrc, pyfile):
         pass
 
 def usage():
-    print "rpmutils.py rpmrc.in rpmutils.py"
+    print("rpmutils.py rpmrc.in rpmutils.py")
 
 def main():
     import sys
-    
+
     if len(sys.argv) < 3:
         usage()
         sys.exit(0)

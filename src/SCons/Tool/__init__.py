@@ -14,7 +14,7 @@ tool definition.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -35,13 +35,15 @@ tool definition.
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-__revision__ = "src/engine/SCons/Tool/__init__.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/__init__.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import imp
+import importlib
 import sys
 import re
 import os
 import shutil
+
 
 import SCons.Builder
 import SCons.Errors
@@ -51,6 +53,8 @@ import SCons.Scanner.C
 import SCons.Scanner.D
 import SCons.Scanner.LaTeX
 import SCons.Scanner.Prog
+import SCons.Scanner.SWIG
+import collections
 
 DefaultToolpath=[]
 
@@ -60,6 +64,7 @@ LaTeXScanner = SCons.Scanner.LaTeX.LaTeXScanner()
 PDFLaTeXScanner = SCons.Scanner.LaTeX.PDFLaTeXScanner()
 ProgramScanner = SCons.Scanner.Prog.ProgramScanner()
 SourceFileScanner = SCons.Scanner.Base({}, name='SourceFileScanner')
+SWIGScanner = SCons.Scanner.SWIG.SWIGScanner()
 
 CSuffixes = [".c", ".C", ".cxx", ".cpp", ".c++", ".cc",
              ".h", ".H", ".hxx", ".hpp", ".hh",
@@ -73,11 +78,16 @@ IDLSuffixes = [".idl", ".IDL"]
 
 LaTeXSuffixes = [".tex", ".ltx", ".latex"]
 
+SWIGSuffixes = ['.i']
+
 for suffix in CSuffixes:
     SourceFileScanner.add_scanner(suffix, CScanner)
 
 for suffix in DSuffixes:
     SourceFileScanner.add_scanner(suffix, DScanner)
+
+for suffix in SWIGSuffixes:
+    SourceFileScanner.add_scanner(suffix, SWIGScanner)
 
 # FIXME: what should be done here? Two scanners scan the same extensions,
 # but look for different files, e.g., "picture.eps" vs. "picture.pdf".
@@ -87,9 +97,20 @@ for suffix in LaTeXSuffixes:
     SourceFileScanner.add_scanner(suffix, LaTeXScanner)
     SourceFileScanner.add_scanner(suffix, PDFLaTeXScanner)
 
+
+# Tool aliases are needed for those tools whos module names also
+# occur in the python standard library. This causes module shadowing and
+# can break using python library functions under python3
+TOOL_ALIASES = {
+    'gettext':'gettext_tool',
+    'clang++': 'clangxx',
+}
+
 class Tool(object):
     def __init__(self, name, toolpath=[], **kw):
-        self.name = name
+
+        # Rename if there's a TOOL_ALIAS for this tool
+        self.name = TOOL_ALIASES.get(name,name)
         self.toolpath = toolpath + DefaultToolpath
         # remember these so we can merge them into the call
         self.init_kw = kw
@@ -100,35 +121,130 @@ class Tool(object):
         if hasattr(module, 'options'):
             self.options = module.options
 
+    def _load_dotted_module_py2(self, short_name, full_name, searchpaths=None):
+        splitname = short_name.split('.')
+        index = 0
+        srchpths = searchpaths
+        for item in splitname:
+            file, path, desc = imp.find_module(item, srchpths)
+            mod = imp.load_module(full_name, file, path, desc)
+            srchpths = [path]
+        return mod, file
+
     def _tool_module(self):
-        # TODO: Interchange zipimport with normal initilization for better error reporting
         oldpythonpath = sys.path
         sys.path = self.toolpath + sys.path
+        # sys.stderr.write("Tool:%s\nPATH:%s\n"%(self.name,sys.path))
 
-        try:
+        if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] in (0,1,2,3,4)):
+            # Py 2 code
             try:
-                file, path, desc = imp.find_module(self.name, self.toolpath)
                 try:
-                    return imp.load_module(self.name, file, path, desc)
-                finally:
-                    if file:
-                        file.close()
-            except ImportError, e:
-                if str(e)!="No module named %s"%self.name:
-                    raise SCons.Errors.EnvironmentError(e)
-                try:
-                    import zipimport
-                except ImportError:
-                    pass
+                    file = None
+                    try:
+                        mod, file = self._load_dotted_module_py2(self.name, self.name, self.toolpath)
+                        return mod
+                    finally:
+                        if file:
+                            file.close()
+                except ImportError as e:
+                    splitname = self.name.split('.')
+                    if str(e)!="No module named %s"%splitname[0]:
+                        raise SCons.Errors.EnvironmentError(e)
+                    try:
+                        import zipimport
+                    except ImportError:
+                        pass
+                    else:
+                        for aPath in self.toolpath:
+                            try:
+                                importer = zipimport.zipimporter(aPath)
+                                return importer.load_module(self.name)
+                            except ImportError as e:
+                                pass
+            finally:
+                sys.path = oldpythonpath
+        elif sys.version_info[1] > 4:
+            # From: http://stackoverflow.com/questions/67631/how-to-import-a-module-given-the-full-path/67692#67692
+            # import importlib.util
+            # spec = importlib.util.spec_from_file_location("module.name", "/path/to/file.py")
+            # foo = importlib.util.module_from_spec(spec)
+            # spec.loader.exec_module(foo)
+            # foo.MyClass()
+            # Py 3 code
+
+            # import pdb; pdb.set_trace()
+            import importlib.util
+
+            # sys.stderr.write("toolpath:%s\n" % self.toolpath)
+            # sys.stderr.write("SCONS.TOOL path:%s\n" % sys.modules['SCons.Tool'].__path__)
+            debug = False
+            spec = None
+            found_name = self.name
+            add_to_scons_tools_namespace = False
+            for path in self.toolpath:
+                sepname = self.name.replace('.', os.path.sep)
+                file_path = os.path.join(path, "%s.py"%sepname)
+                file_package = os.path.join(path, sepname)
+
+                if debug: sys.stderr.write("Trying:%s %s\n"%(file_path, file_package))
+
+                if os.path.isfile(file_path):
+                    spec = importlib.util.spec_from_file_location(self.name, file_path)
+                    if debug: print("file_Path:%s FOUND"%file_path)
+                    break
+                elif os.path.isdir(file_package):
+                    file_package = os.path.join(file_package, '__init__.py')
+                    spec = importlib.util.spec_from_file_location(self.name, file_package)
+                    if debug: print("PACKAGE:%s Found"%file_package)
+                    break
+
                 else:
-                    for aPath in self.toolpath:
-                        try:
-                            importer = zipimport.zipimporter(aPath)
-                            return importer.load_module(self.name)
-                        except ImportError, e:
-                            pass
-        finally:
-            sys.path = oldpythonpath
+                    continue
+
+            if spec is None:
+                if debug: sys.stderr.write("NO SPEC :%s\n"%self.name)
+                spec = importlib.util.find_spec("."+self.name, package='SCons.Tool')
+                if spec:
+                    found_name = 'SCons.Tool.'+self.name
+                    add_to_scons_tools_namespace = True
+                if debug: sys.stderr.write("Spec Found? .%s :%s\n"%(self.name, spec))
+
+            if spec is None:
+                error_string = "No module named %s"%self.name
+                raise SCons.Errors.EnvironmentError(error_string)
+
+            module = importlib.util.module_from_spec(spec)
+            if module is None:
+                if debug: print("MODULE IS NONE:%s"%self.name)
+                error_string = "No module named %s"%self.name
+                raise SCons.Errors.EnvironmentError(error_string)
+
+            # Don't reload a tool we already loaded.
+            sys_modules_value = sys.modules.get(found_name,False)
+
+            found_module = None
+            if sys_modules_value and sys_modules_value.__file__ == spec.origin:
+                found_module = sys.modules[found_name]
+            else:
+                # Not sure what to do in the case that there already
+                # exists sys.modules[self.name] but the source file is
+                # different.. ?
+                module = spec.loader.load_module(spec.name)
+
+                sys.modules[found_name] = module
+                if add_to_scons_tools_namespace:
+                    # If we found it in SCons.Tool, then add it to the module
+                    setattr(SCons.Tool, self.name, module)
+
+                found_module = module
+            
+            if found_module is not None:
+                sys.path = oldpythonpath
+                return found_module
+
+
+        sys.path = oldpythonpath
 
         full_name = 'SCons.Tool.' + self.name
         try:
@@ -137,13 +253,12 @@ class Tool(object):
             try:
                 smpath = sys.modules['SCons.Tool'].__path__
                 try:
-                    file, path, desc = imp.find_module(self.name, smpath)
-                    module = imp.load_module(full_name, file, path, desc)
+                    module, file = self._load_dotted_module_py2(self.name, full_name, smpath)
                     setattr(SCons.Tool, self.name, module)
                     if file:
                         file.close()
                     return module
-                except ImportError, e:
+                except ImportError as e:
                     if str(e)!="No module named %s"%self.name:
                         raise SCons.Errors.EnvironmentError(e)
                     try:
@@ -152,10 +267,10 @@ class Tool(object):
                         module = importer.load_module(full_name)
                         setattr(SCons.Tool, self.name, module)
                         return module
-                    except ImportError, e:
+                    except ImportError as e:
                         m = "No tool named '%s': %s" % (self.name, e)
                         raise SCons.Errors.EnvironmentError(m)
-            except ImportError, e:
+            except ImportError as e:
                 m = "No tool named '%s': %s" % (self.name, e)
                 raise SCons.Errors.EnvironmentError(m)
 
@@ -210,6 +325,7 @@ def createProgBuilder(env):
 
     return program
 
+
 def createStaticLibBuilder(env):
     """This is a utility function that creates the StaticLibrary
     Builder in an Environment if it is not there already.
@@ -221,7 +337,7 @@ def createStaticLibBuilder(env):
         static_lib = env['BUILDERS']['StaticLibrary']
     except KeyError:
         action_list = [ SCons.Action.Action("$ARCOM", "$ARCOMSTR") ]
-        if env.Detect('ranlib'):
+        if env.get('RANLIB',False) or env.Detect('ranlib'):
             ranlib_action = SCons.Action.Action("$RANLIBCOM", "$RANLIBCOMSTR")
             action_list.append(ranlib_action)
 
@@ -236,141 +352,437 @@ def createStaticLibBuilder(env):
 
     return static_lib
 
-def VersionShLibLinkNames(version, libname, env):
-    """Generate names of symlinks to the versioned shared library"""
+def _call_linker_cb(env, callback, args, result = None):
+    """Returns the result of env['LINKCALLBACKS'][callback](*args)
+    if env['LINKCALLBACKS'] is a dictionary and env['LINKCALLBACKS'][callback]
+    is callable. If these conditions are not met, return the value provided as
+    the *result* argument. This function is mainly used for generating library
+    info such as versioned suffixes, symlink maps, sonames etc. by delegating
+    the core job to callbacks configured by current linker tool"""
+
     Verbose = False
-    platform = env.subst('$PLATFORM')
-    shlib_suffix = env.subst('$SHLIBSUFFIX')
-    shlink_flags = SCons.Util.CLVar(env.subst('$SHLINKFLAGS'))
 
-    linknames = []
-    if version.count(".") != 2:
-        # We need a version string of the form x.y.z to proceed
-        # Several changes need to be made to support versions like x.y
-        raise ValueError
-
-    if platform == 'darwin':
-        # For libfoo.x.y.z.dylib, linknames libfoo.so
-        suffix_re = re.escape('.' + version + shlib_suffix)
-        linkname = re.sub(suffix_re, shlib_suffix, libname)
-        if Verbose:
-            print "VersionShLibLinkNames: linkname = ",linkname
-        linknames.append(linkname)
-    elif platform == 'posix':
-        if sys.platform.startswith('openbsd'):
-            # OpenBSD uses x.y shared library versioning numbering convention
-            # and doesn't use symlinks to backwards-compatible libraries
-            return []
-        # For libfoo.so.x.y.z, linknames libfoo.so libfoo.so.x.y libfoo.so.x
-        suffix_re = re.escape(shlib_suffix + '.' + version)
-        # First linkname has no version number
-        linkname = re.sub(suffix_re, shlib_suffix, libname)
-        if Verbose:
-            print "VersionShLibLinkNames: linkname = ",linkname
-        linknames.append(linkname)
-        versionparts = version.split('.')
-        major_name = linkname + "." + versionparts[0]
-        minor_name = major_name + "." + versionparts[1]
-        #Only add link for major_name
-        #for linkname in [major_name, minor_name]:
-        for linkname in [major_name, ]:
-            if Verbose:
-                print "VersionShLibLinkNames: linkname ",linkname, ", target ",libname
-            linknames.append(linkname)
-    # note: no Windows case here (win32 or cygwin);
-    # MSVC doesn't support this type of versioned shared libs.
-    # (could probably do something for MinGW though)
-    return linknames
-
-def VersionedSharedLibrary(target = None, source= None, env=None):
-    """Build a shared library. If the environment has SHLIBVERSION
-defined make a versioned shared library and create the appropriate
-symlinks for the platform we are on"""
-    Verbose = False
-    try:
-        version = env.subst('$SHLIBVERSION')
-    except KeyError:
-        version = None
-
-    # libname includes the version number if one was given
-    libname = target[0].name
-    platform = env.subst('$PLATFORM')
-    shlib_suffix = env.subst('$SHLIBSUFFIX')
-    shlink_flags = SCons.Util.CLVar(env.subst('$SHLINKFLAGS'))
     if Verbose:
-        print "VersionShLib: libname      = ",libname
-        print "VersionShLib: platform     = ",platform
-        print "VersionShLib: shlib_suffix = ",shlib_suffix
-        print "VersionShLib: target = ",str(target[0])
+        print('_call_linker_cb: args=%r' % args)
+        print('_call_linker_cb: callback=%r' % callback)
 
-    if version:
-        # set the shared library link flags
-        if platform == 'posix':
-            shlink_flags += [ '-Wl,-Bsymbolic' ]
-            # OpenBSD doesn't usually use SONAME for libraries
-            if not sys.platform.startswith('openbsd'):
-                # continue setup of shlink flags for all other POSIX systems
-                suffix_re = re.escape(shlib_suffix + '.' + version)
-                (major, age, revision) = version.split(".")
-                # soname will have only the major version number in it
-                soname = re.sub(suffix_re, shlib_suffix, libname) + '.' + major
-                shlink_flags += [ '-Wl,-soname=%s' % soname ]
-                if Verbose:
-                    print " soname ",soname,", shlink_flags ",shlink_flags
-        elif platform == 'cygwin':
-            shlink_flags += [ '-Wl,-Bsymbolic',
-                              '-Wl,--out-implib,${TARGET.base}.a' ]
-        elif platform == 'darwin':
-            shlink_flags += [ '-current_version', '%s' % version,
-                              '-compatibility_version', '%s' % version,
-                              '-undefined', 'dynamic_lookup' ]
+    try:
+        cbfun = env['LINKCALLBACKS'][callback]
+    except (KeyError, TypeError):
         if Verbose:
-            print "VersionShLib: shlink_flags = ",shlink_flags
-        envlink = env.Clone()
-        envlink['SHLINKFLAGS'] = shlink_flags
+            print('_call_linker_cb: env["LINKCALLBACKS"][%r] not found or can not be used' % callback)
+        pass
     else:
-        envlink = env
-
-    result = SCons.Defaults.ShLinkAction(target, source, envlink)
-
-    if version:
-        # here we need the full pathname so the links end up in the right directory
-        libname = target[0].path
-        linknames = VersionShLibLinkNames(version, libname, env)
         if Verbose:
-            print "VerShLib: linknames ",linknames
-        # Here we just need the file name w/o path as the target of the link
-        lib_ver = target[0].name
-        # make symlink of adjacent names in linknames
-        for count in range(len(linknames)):
-            linkname = linknames[count]
-            if count > 0:
-                try:
-                    os.remove(lastlinkname)
-                except:
-                    pass
-                os.symlink(os.path.basename(linkname),lastlinkname)
-                if Verbose:
-                    print "VerShLib: made sym link of %s -> %s" % (lastlinkname,linkname)
-            lastlinkname = linkname
-        # finish chain of sym links with link to the actual library
-        if len(linknames)>0:
-            try:
-                os.remove(lastlinkname)
-            except:
-                pass
-            os.symlink(lib_ver,lastlinkname)
+            print('_call_linker_cb: env["LINKCALLBACKS"][%r] found' % callback)
+            print('_call_linker_cb: env["LINKCALLBACKS"][%r]=%r' % (callback, cbfun))
+        if(isinstance(cbfun, collections.Callable)):
             if Verbose:
-                print "VerShLib: made sym link of %s -> %s" % (linkname, lib_ver)
+                print('_call_linker_cb: env["LINKCALLBACKS"][%r] is callable' % callback)
+            result = cbfun(env, *args)
     return result
 
-# Fix http://scons.tigris.org/issues/show_bug.cgi?id=2903 :
-# Ensure we still depend on SCons.Defaults.ShLinkAction command line which is $SHLINKCOM.
-# This was tricky because we don't want changing LIBPATH to cause a rebuild, but
-# changing other link args should.  LIBPATH has $( ... $) around it but until this
-# fix, when the varlist was added to the build sig those ignored parts weren't getting
-# ignored.
-ShLibAction = SCons.Action.Action(VersionedSharedLibrary, None, varlist=['SHLINKCOM'])
+def _call_env_subst(env, string, *args, **kw):
+    kw2 = {}
+    for k in ('raw', 'target', 'source', 'conv', 'executor'):
+        try: kw2[k] = kw[k]
+        except KeyError: pass
+    return env.subst(string, *args, **kw2)
+
+class _ShLibInfoSupport(object):
+    def get_libtype(self):
+        return 'ShLib'
+    def get_lib_prefix(self, env, *args, **kw):
+        return _call_env_subst(env,'$SHLIBPREFIX', *args, **kw)
+    def get_lib_suffix(self, env, *args, **kw):
+        return _call_env_subst(env,'$SHLIBSUFFIX', *args, **kw)
+    def get_lib_version(self, env, *args, **kw):
+        return _call_env_subst(env,'$SHLIBVERSION', *args, **kw)
+    def get_lib_noversionsymlinks(self, env, *args, **kw):
+        return _call_env_subst(env,'$SHLIBNOVERSIONSYMLINKS', *args, **kw)
+
+class _LdModInfoSupport(object):
+    def get_libtype(self):
+        return 'LdMod'
+    def get_lib_prefix(self, env, *args, **kw):
+        return _call_env_subst(env,'$LDMODULEPREFIX', *args, **kw)
+    def get_lib_suffix(self, env, *args, **kw):
+        return _call_env_subst(env,'$LDMODULESUFFIX', *args, **kw)
+    def get_lib_version(self, env, *args, **kw):
+        return _call_env_subst(env,'$LDMODULEVERSION', *args, **kw)
+    def get_lib_noversionsymlinks(self, env, *args, **kw):
+        return _call_env_subst(env,'$LDMODULENOVERSIONSYMLINKS', *args, **kw)
+
+class _ImpLibInfoSupport(object):
+    def get_libtype(self):
+        return 'ImpLib'
+    def get_lib_prefix(self, env, *args, **kw):
+        return _call_env_subst(env,'$IMPLIBPREFIX', *args, **kw)
+    def get_lib_suffix(self, env, *args, **kw):
+        return _call_env_subst(env,'$IMPLIBSUFFIX', *args, **kw)
+    def get_lib_version(self, env, *args, **kw):
+        version = _call_env_subst(env,'$IMPLIBVERSION', *args, **kw)
+        if not version:
+            try: lt = kw['implib_libtype']
+            except KeyError: pass
+            else:
+                if lt == 'ShLib':
+                    version = _call_env_subst(env,'$SHLIBVERSION', *args, **kw)
+                elif lt == 'LdMod':
+                    version = _call_env_subst(env,'$LDMODULEVERSION', *args, **kw)
+        return version
+    def get_lib_noversionsymlinks(self, env, *args, **kw):
+        disable = None
+        try: env['IMPLIBNOVERSIONSYMLINKS']
+        except KeyError:
+            try: lt = kw['implib_libtype']
+            except KeyError: pass
+            else:
+                if lt == 'ShLib':
+                    disable = _call_env_subst(env,'$SHLIBNOVERSIONSYMLINKS', *args, **kw)
+                elif lt == 'LdMod':
+                    disable = _call_env_subst(env,'$LDMODULENOVERSIONSYMLINKS', *args, **kw)
+        else:
+            disable = _call_env_subst(env,'$IMPLIBNOVERSIONSYMLINKS', *args, **kw)
+        return disable
+
+class _LibInfoGeneratorBase(object):
+    """Generator base class for library-related info such as suffixes for
+    versioned libraries, symlink maps, sonames etc. It handles commonities
+    of SharedLibrary and LoadableModule
+    """
+    _support_classes = { 'ShLib'  : _ShLibInfoSupport,
+                         'LdMod'  : _LdModInfoSupport,
+                         'ImpLib' : _ImpLibInfoSupport }
+    def __init__(self, libtype, infoname):
+        self.set_libtype(libtype)
+        self.set_infoname(infoname)
+
+    def set_libtype(self, libtype):
+        try:
+            support_class = self._support_classes[libtype]
+        except KeyError:
+            raise ValueError('unsupported libtype %r' % libtype)
+        self._support = support_class()
+
+    def get_libtype(self):
+        return self._support.get_libtype()
+
+    def set_infoname(self, infoname):
+        self.infoname = infoname
+
+    def get_infoname(self):
+        return self.infoname
+
+    def get_lib_prefix(self, env, *args, **kw):
+        return self._support.get_lib_prefix(env,*args,**kw)
+
+    def get_lib_suffix(self, env, *args, **kw):
+        return self._support.get_lib_suffix(env,*args,**kw)
+
+    def get_lib_version(self, env, *args, **kw):
+        return self._support.get_lib_version(env,*args,**kw)
+
+    def get_lib_noversionsymlinks(self, env, *args, **kw):
+        return self._support.get_lib_noversionsymlinks(env,*args,**kw)
+
+    # Returns name of generator linker callback that shall be used to generate
+    # our info for a versioned library. For example, if our libtype is 'ShLib'
+    # and infoname is 'Prefix', it would return 'VersionedShLibPrefix'.
+    def get_versioned_lib_info_generator(self, **kw):
+        try: libtype = kw['generator_libtype']
+        except KeyError: libtype = self.get_libtype()
+        infoname = self.get_infoname()
+        return 'Versioned%s%s' % (libtype, infoname)
+
+    def generate_versioned_lib_info(self, env, args, result = None, **kw):
+        callback = self.get_versioned_lib_info_generator(**kw)
+        return _call_linker_cb(env, callback, args, result)
+
+class _LibPrefixGenerator(_LibInfoGeneratorBase):
+    """Library prefix generator, used as target_prefix in SharedLibrary and
+    LoadableModule builders"""
+    def __init__(self, libtype):
+        super(_LibPrefixGenerator, self).__init__(libtype, 'Prefix')
+
+    def __call__(self, env, sources = None, **kw):
+        Verbose = False
+
+        if sources and 'source' not in kw:
+            kw2 = kw.copy()
+            kw2['source'] = sources
+        else:
+            kw2 = kw
+
+        prefix = self.get_lib_prefix(env,**kw2)
+        if Verbose:
+            print("_LibPrefixGenerator: input prefix=%r" % prefix)
+
+        version = self.get_lib_version(env, **kw2)
+        if Verbose:
+            print("_LibPrefixGenerator: version=%r" % version)
+
+        if version:
+            prefix = self.generate_versioned_lib_info(env, [prefix, version], prefix, **kw2)
+
+        if Verbose:
+            print("_LibPrefixGenerator: return prefix=%r" % prefix)
+        return prefix
+
+ShLibPrefixGenerator  = _LibPrefixGenerator('ShLib')
+LdModPrefixGenerator  = _LibPrefixGenerator('LdMod')
+ImpLibPrefixGenerator = _LibPrefixGenerator('ImpLib')
+
+class _LibSuffixGenerator(_LibInfoGeneratorBase):
+    """Library suffix generator, used as target_suffix in SharedLibrary and
+    LoadableModule builders"""
+    def __init__(self, libtype):
+        super(_LibSuffixGenerator, self).__init__(libtype, 'Suffix')
+
+    def __call__(self, env, sources = None, **kw):
+        Verbose = False
+
+        if sources and 'source' not in kw:
+            kw2 = kw.copy()
+            kw2['source'] = sources
+        else:
+            kw2 = kw
+
+        suffix = self.get_lib_suffix(env, **kw2)
+        if Verbose:
+            print("_LibSuffixGenerator: input suffix=%r" % suffix)
+
+        version = self.get_lib_version(env, **kw2)
+        if Verbose:
+            print("_LibSuffixGenerator: version=%r" % version)
+
+        if version:
+            suffix = self.generate_versioned_lib_info(env, [suffix, version], suffix, **kw2)
+
+        if Verbose:
+            print("_LibSuffixGenerator: return suffix=%r" % suffix)
+        return suffix
+
+ShLibSuffixGenerator  = _LibSuffixGenerator('ShLib')
+LdModSuffixGenerator  = _LibSuffixGenerator('LdMod')
+ImpLibSuffixGenerator = _LibSuffixGenerator('ImpLib')
+
+class _LibSymlinkGenerator(_LibInfoGeneratorBase):
+    """Library symlink map generator. It generates a list of symlinks that
+    should be created by SharedLibrary or LoadableModule builders"""
+    def __init__(self, libtype):
+        super(_LibSymlinkGenerator, self).__init__(libtype, 'Symlinks')
+
+    def __call__(self, env, libnode, **kw):
+        Verbose = False
+
+        if libnode and 'target' not in kw:
+            kw2 = kw.copy()
+            kw2['target'] = libnode
+        else:
+            kw2 = kw
+
+        if Verbose:
+            print("_LibSymLinkGenerator: libnode=%r" % libnode.get_path())
+
+        symlinks = None
+
+        version = self.get_lib_version(env, **kw2)
+        disable = self.get_lib_noversionsymlinks(env, **kw2)
+        if Verbose:
+            print('_LibSymlinkGenerator: version=%r' % version)
+            print('_LibSymlinkGenerator: disable=%r' % disable)
+
+        if version and not disable:
+            prefix = self.get_lib_prefix(env,**kw2)
+            suffix = self.get_lib_suffix(env,**kw2)
+            symlinks = self.generate_versioned_lib_info(env, [libnode, version, prefix, suffix], **kw2)
+
+        if Verbose:
+            print('_LibSymlinkGenerator: return symlinks=%r' % StringizeLibSymlinks(symlinks))
+        return symlinks
+
+ShLibSymlinkGenerator =  _LibSymlinkGenerator('ShLib')
+LdModSymlinkGenerator =  _LibSymlinkGenerator('LdMod')
+ImpLibSymlinkGenerator = _LibSymlinkGenerator('ImpLib')
+
+class _LibNameGenerator(_LibInfoGeneratorBase):
+    """Generates "unmangled" library name from a library file node.
+
+    Generally, it's thought to revert modifications done by prefix/suffix
+    generators (_LibPrefixGenerator/_LibSuffixGenerator) used by a library
+    builder. For example, on gnulink the suffix generator used by SharedLibrary
+    builder appends $SHLIBVERSION to $SHLIBSUFFIX producing node name which
+    ends with "$SHLIBSUFFIX.$SHLIBVERSION". Correspondingly, the implementation
+    of _LibNameGenerator replaces "$SHLIBSUFFIX.$SHLIBVERSION" with
+    "$SHLIBSUFFIX" in the node's basename. So that, if $SHLIBSUFFIX is ".so",
+    $SHLIBVERSION is "0.1.2" and the node path is "/foo/bar/libfoo.so.0.1.2",
+    the _LibNameGenerator shall return "libfoo.so". Other link tools may
+    implement it's own way of library name unmangling.
+    """
+    def __init__(self, libtype):
+        super(_LibNameGenerator, self).__init__(libtype, 'Name')
+
+    def __call__(self, env, libnode, **kw):
+        """Returns "demangled" library name"""
+        Verbose = False
+
+        if libnode and 'target' not in kw:
+            kw2 = kw.copy()
+            kw2['target'] = libnode
+        else:
+            kw2 = kw
+
+        if Verbose:
+            print("_LibNameGenerator: libnode=%r" % libnode.get_path())
+
+        version = self.get_lib_version(env, **kw2)
+        if Verbose:
+            print('_LibNameGenerator: version=%r' % version)
+
+        name = None
+        if version:
+            prefix = self.get_lib_prefix(env,**kw2)
+            suffix = self.get_lib_suffix(env,**kw2)
+            name = self.generate_versioned_lib_info(env, [libnode, version, prefix, suffix], **kw2)
+
+        if not name:
+            name = os.path.basename(libnode.get_path())
+
+        if Verbose:
+            print('_LibNameGenerator: return name=%r' % name)
+
+        return name
+
+ShLibNameGenerator =  _LibNameGenerator('ShLib')
+LdModNameGenerator =  _LibNameGenerator('LdMod')
+ImpLibNameGenerator = _LibNameGenerator('ImpLib')
+
+class _LibSonameGenerator(_LibInfoGeneratorBase):
+    """Library soname generator. Returns library soname (e.g. libfoo.so.0) for
+    a given node (e.g. /foo/bar/libfoo.so.0.1.2)"""
+    def __init__(self, libtype):
+        super(_LibSonameGenerator, self).__init__(libtype, 'Soname')
+
+    def __call__(self, env, libnode, **kw):
+        """Returns a SONAME based on a shared library's node path"""
+        Verbose = False
+
+        if libnode and 'target' not in kw:
+            kw2 = kw.copy()
+            kw2['target'] = libnode
+        else:
+            kw2 = kw
+
+        if Verbose:
+            print("_LibSonameGenerator: libnode=%r" % libnode.get_path())
+
+        soname = _call_env_subst(env, '$SONAME', **kw2)
+        if not soname:
+            version = self.get_lib_version(env,**kw2)
+            if Verbose:
+                print("_LibSonameGenerator: version=%r" % version)
+            if version:
+                prefix = self.get_lib_prefix(env,**kw2)
+                suffix = self.get_lib_suffix(env,**kw2)
+                soname = self.generate_versioned_lib_info(env, [libnode, version, prefix, suffix], **kw2)
+
+        if not soname:
+            # fallback to library name (as returned by appropriate _LibNameGenerator)
+            soname = _LibNameGenerator(self.get_libtype())(env, libnode)
+            if Verbose:
+                print("_LibSonameGenerator: FALLBACK: soname=%r" % soname)
+
+        if Verbose:
+            print("_LibSonameGenerator: return soname=%r" % soname)
+
+        return soname
+
+ShLibSonameGenerator =  _LibSonameGenerator('ShLib')
+LdModSonameGenerator =  _LibSonameGenerator('LdMod')
+
+def StringizeLibSymlinks(symlinks):
+    """Converts list with pairs of nodes to list with pairs of node paths
+    (strings). Used mainly for debugging."""
+    if SCons.Util.is_List(symlinks):
+        try:
+            return [ (k.get_path(), v.get_path()) for k,v in symlinks ]
+        except (TypeError, ValueError):
+            return symlinks
+    else:
+        return symlinks
+
+def EmitLibSymlinks(env, symlinks, libnode, **kw):
+    """Used by emitters to handle (shared/versioned) library symlinks"""
+    Verbose = False
+
+    # nodes involved in process... all symlinks + library
+    nodes = list(set([ x for x,y in symlinks ] + [libnode]))
+
+    clean_targets = kw.get('clean_targets', [])
+    if not SCons.Util.is_List(clean_targets):
+        clean_targets = [ clean_targets ]
+
+    for link, linktgt in symlinks:
+        env.SideEffect(link, linktgt)
+        if(Verbose):
+            print("EmitLibSymlinks: SideEffect(%r,%r)" % (link.get_path(), linktgt.get_path()))
+        clean_list = [x for x in nodes if x != linktgt]
+        env.Clean(list(set([linktgt] + clean_targets)), clean_list)
+        if(Verbose):
+            print("EmitLibSymlinks: Clean(%r,%r)" % (linktgt.get_path(), [x.get_path() for x in clean_list]))
+
+def CreateLibSymlinks(env, symlinks):
+    """Physically creates symlinks. The symlinks argument must be a list in
+    form [ (link, linktarget), ... ], where link and linktarget are SCons
+    nodes.
+    """
+
+    Verbose = False
+    for link, linktgt in symlinks:
+        linktgt = link.get_dir().rel_path(linktgt)
+        link = link.get_path()
+        if(Verbose):
+            print("CreateLibSymlinks: preparing to add symlink %r -> %r" % (link, linktgt))
+        # Delete the (previously created) symlink if exists. Let only symlinks
+        # to be deleted to prevent accidental deletion of source files...
+        if env.fs.islink(link):
+            env.fs.unlink(link)
+            if(Verbose):
+                print("CreateLibSymlinks: removed old symlink %r" % link)
+        # If a file or directory exists with the same name as link, an OSError
+        # will be thrown, which should be enough, I think.
+        env.fs.symlink(linktgt, link)
+        if(Verbose):
+            print("CreateLibSymlinks: add symlink %r -> %r" % (link, linktgt))
+    return 0
+
+def LibSymlinksActionFunction(target, source, env):
+    for tgt in target:
+        symlinks = getattr(getattr(tgt,'attributes', None), 'shliblinks', None)
+        if symlinks:
+            CreateLibSymlinks(env, symlinks)
+    return 0
+
+def LibSymlinksStrFun(target, source, env, *args):
+    cmd = None
+    for tgt in target:
+        symlinks = getattr(getattr(tgt,'attributes', None), 'shliblinks', None)
+        if symlinks:
+            if cmd is None: cmd = ""
+            if cmd: cmd += "\n"
+            cmd += "Create symlinks for: %r" % tgt.get_path()
+            try:
+                linkstr = ', '.join([ "%r->%r" %(k,v) for k,v in StringizeLibSymlinks(symlinks)])
+            except (KeyError, ValueError):
+                pass
+            else:
+                cmd += ": %s" % linkstr
+    return cmd
+
+
+LibSymlinksAction = SCons.Action.Action(LibSymlinksActionFunction, LibSymlinksStrFun)
+
 
 def createSharedLibBuilder(env):
     """This is a utility function that creates the SharedLibrary
@@ -384,11 +796,12 @@ def createSharedLibBuilder(env):
     except KeyError:
         import SCons.Defaults
         action_list = [ SCons.Defaults.SharedCheck,
-                        ShLibAction ]
+                        SCons.Defaults.ShLinkAction,
+                        LibSymlinksAction ]
         shared_lib = SCons.Builder.Builder(action = action_list,
                                            emitter = "$SHLIBEMITTER",
-                                           prefix = '$SHLIBPREFIX',
-                                           suffix = '$SHLIBSUFFIX',
+                                           prefix = ShLibPrefixGenerator,
+                                           suffix = ShLibSuffixGenerator,
                                            target_scanner = ProgramScanner,
                                            src_suffix = '$SHOBJSUFFIX',
                                            src_builder = 'SharedObject')
@@ -408,11 +821,12 @@ def createLoadableModuleBuilder(env):
     except KeyError:
         import SCons.Defaults
         action_list = [ SCons.Defaults.SharedCheck,
-                        SCons.Defaults.LdModuleLinkAction ]
+                        SCons.Defaults.LdModuleLinkAction,
+                        LibSymlinksAction ]
         ld_module = SCons.Builder.Builder(action = action_list,
                                           emitter = "$LDMODULEEMITTER",
-                                          prefix = '$LDMODULEPREFIX',
-                                          suffix = '$LDMODULESUFFIX',
+                                          prefix = LdModPrefixGenerator,
+                                          suffix = LdModSuffixGenerator,
                                           target_scanner = ProgramScanner,
                                           src_suffix = '$SHOBJSUFFIX',
                                           src_builder = 'SharedObject')
@@ -499,17 +913,25 @@ def createCFileBuilders(env):
 #  Create common Java builders
 
 def CreateJarBuilder(env):
+    """The Jar builder expects a list of class files
+    which it can package into a jar file.
+
+    The jar tool provides an interface for passing other types
+    of java files such as .java, directories or swig interfaces
+    and will build them to class files in which it can package
+    into the jar.
+    """
     try:
-        java_jar = env['BUILDERS']['Jar']
+        java_jar = env['BUILDERS']['JarFile']
     except KeyError:
         fs = SCons.Node.FS.get_default_fs()
         jar_com = SCons.Action.Action('$JARCOM', '$JARCOMSTR')
         java_jar = SCons.Builder.Builder(action = jar_com,
                                          suffix = '$JARSUFFIX',
-                                         src_suffix = '$JAVACLASSSUFIX',
+                                         src_suffix = '$JAVACLASSSUFFIX',
                                          src_builder = 'JavaClassFile',
                                          source_factory = fs.Entry)
-        env['BUILDERS']['Jar'] = java_jar
+        env['BUILDERS']['JarFile'] = java_jar
     return java_jar
 
 def CreateJavaHBuilder(env):
@@ -586,9 +1008,9 @@ class ToolInitializerMethod(object):
 
     def get_builder(self, env):
         """
-	Returns the appropriate real Builder for this method name
-	after having the associated ToolInitializer object apply
-	the appropriate Tool module.
+        Returns the appropriate real Builder for this method name
+        after having the associated ToolInitializer object apply
+        the appropriate Tool module.
         """
         builder = getattr(env, self.__name__)
 
@@ -645,13 +1067,13 @@ class ToolInitializer(object):
         so we no longer copy and re-bind them when the construction
         environment gets cloned.
         """
-        for method in self.methods.values():
+        for method in list(self.methods.values()):
             env.RemoveMethod(method)
 
     def apply_tools(self, env):
         """
-	Searches the list of associated Tool modules for one that
-	exists, and applies that to the construction environment.
+        Searches the list of associated Tool modules for one that
+        exists, and applies that to the construction environment.
         """
         for t in self.tools:
             tool = SCons.Tool.Tool(t)
@@ -701,16 +1123,16 @@ def tool_list(platform, env):
         "prefer Microsoft tools on Windows"
         linkers = ['mslink', 'gnulink', 'ilink', 'linkloc', 'ilink32' ]
         c_compilers = ['msvc', 'mingw', 'gcc', 'intelc', 'icl', 'icc', 'cc', 'bcc32' ]
-        cxx_compilers = ['msvc', 'intelc', 'icc', 'g++', 'c++', 'bcc32' ]
+        cxx_compilers = ['msvc', 'intelc', 'icc', 'g++', 'cxx', 'bcc32' ]
         assemblers = ['masm', 'nasm', 'gas', '386asm' ]
         fortran_compilers = ['gfortran', 'g77', 'ifl', 'cvf', 'f95', 'f90', 'fortran']
         ars = ['mslib', 'ar', 'tlib']
-        other_plat_tools=['msvs','midl']
+        other_plat_tools = ['msvs', 'midl']
     elif str(platform) == 'os2':
         "prefer IBM tools on OS/2"
         linkers = ['ilink', 'gnulink', ]#'mslink']
         c_compilers = ['icc', 'gcc',]# 'msvc', 'cc']
-        cxx_compilers = ['icc', 'g++',]# 'msvc', 'c++']
+        cxx_compilers = ['icc', 'g++',]# 'msvc', 'cxx']
         assemblers = ['nasm',]# 'masm', 'gas']
         fortran_compilers = ['ifl', 'g77']
         ars = ['ar',]# 'mslib']
@@ -718,7 +1140,7 @@ def tool_list(platform, env):
         "prefer MIPSPro on IRIX"
         linkers = ['sgilink', 'gnulink']
         c_compilers = ['sgicc', 'gcc', 'cc']
-        cxx_compilers = ['sgic++', 'g++', 'c++']
+        cxx_compilers = ['sgicxx', 'g++', 'cxx']
         assemblers = ['as', 'gas']
         fortran_compilers = ['f95', 'f90', 'f77', 'g77', 'fortran']
         ars = ['sgiar']
@@ -726,7 +1148,7 @@ def tool_list(platform, env):
         "prefer Forte tools on SunOS"
         linkers = ['sunlink', 'gnulink']
         c_compilers = ['suncc', 'gcc', 'cc']
-        cxx_compilers = ['sunc++', 'g++', 'c++']
+        cxx_compilers = ['suncxx', 'g++', 'cxx']
         assemblers = ['as', 'gas']
         fortran_compilers = ['sunf95', 'sunf90', 'sunf77', 'f95', 'f90', 'f77',
                              'gfortran', 'g77', 'fortran']
@@ -735,7 +1157,7 @@ def tool_list(platform, env):
         "prefer aCC tools on HP-UX"
         linkers = ['hplink', 'gnulink']
         c_compilers = ['hpcc', 'gcc', 'cc']
-        cxx_compilers = ['hpc++', 'g++', 'c++']
+        cxx_compilers = ['hpcxx', 'g++', 'cxx']
         assemblers = ['as', 'gas']
         fortran_compilers = ['f95', 'f90', 'f77', 'g77', 'fortran']
         ars = ['ar']
@@ -743,7 +1165,7 @@ def tool_list(platform, env):
         "prefer AIX Visual Age tools on AIX"
         linkers = ['aixlink', 'gnulink']
         c_compilers = ['aixcc', 'gcc', 'cc']
-        cxx_compilers = ['aixc++', 'g++', 'c++']
+        cxx_compilers = ['aixcxx', 'g++', 'cxx']
         assemblers = ['as', 'gas']
         fortran_compilers = ['f95', 'f90', 'aixf77', 'g77', 'fortran']
         ars = ['ar']
@@ -751,7 +1173,7 @@ def tool_list(platform, env):
         "prefer GNU tools on Mac OS X, except for some linkers and IBM tools"
         linkers = ['applelink', 'gnulink']
         c_compilers = ['gcc', 'cc']
-        cxx_compilers = ['g++', 'c++']
+        cxx_compilers = ['g++', 'cxx']
         assemblers = ['as']
         fortran_compilers = ['gfortran', 'f95', 'f90', 'g77']
         ars = ['ar']
@@ -759,18 +1181,21 @@ def tool_list(platform, env):
         "prefer GNU tools on Cygwin, except for a platform-specific linker"
         linkers = ['cyglink', 'mslink', 'ilink']
         c_compilers = ['gcc', 'msvc', 'intelc', 'icc', 'cc']
-        cxx_compilers = ['g++', 'msvc', 'intelc', 'icc', 'c++']
+        cxx_compilers = ['g++', 'msvc', 'intelc', 'icc', 'cxx']
         assemblers = ['gas', 'nasm', 'masm']
         fortran_compilers = ['gfortran', 'g77', 'ifort', 'ifl', 'f95', 'f90', 'f77']
         ars = ['ar', 'mslib']
     else:
         "prefer GNU tools on all other platforms"
-        linkers = ['gnulink', 'mslink', 'ilink']
-        c_compilers = ['gcc', 'msvc', 'intelc', 'icc', 'cc']
-        cxx_compilers = ['g++', 'msvc', 'intelc', 'icc', 'c++']
+        linkers = ['gnulink', 'ilink']
+        c_compilers = ['gcc',  'intelc', 'icc', 'cc']
+        cxx_compilers = ['g++', 'intelc', 'icc', 'cxx']
         assemblers = ['gas', 'nasm', 'masm']
         fortran_compilers = ['gfortran', 'g77', 'ifort', 'ifl', 'f95', 'f90', 'f77']
-        ars = ['ar', 'mslib']
+        ars = ['ar',]
+
+    if not str(platform) == 'win32':
+        other_plat_tools += ['m4', 'rpm']
 
     c_compiler = FindTool(c_compilers, env) or c_compilers[0]
 
@@ -795,12 +1220,13 @@ def tool_list(platform, env):
         fortran_compiler = FindTool(fortran_compilers, env) or fortran_compilers[0]
         ar = FindTool(ars, env) or ars[0]
 
+    d_compilers = ['dmd', 'ldc', 'gdc']
+    d_compiler = FindTool(d_compilers, env) or d_compilers[0]
+
     other_tools = FindAllTools(other_plat_tools + [
-                               'dmd',
                                #TODO: merge 'install' into 'filesystem' and
                                # make 'filesystem' the default
                                'filesystem',
-                               'm4',
                                'wix', #'midl', 'msvs',
                                # Parser generators
                                'lex', 'yacc',
@@ -812,14 +1238,11 @@ def tool_list(platform, env):
                                'dvipdf', 'dvips', 'gs',
                                'tex', 'latex', 'pdflatex', 'pdftex',
                                # Archivers
-                               'tar', 'zip', 'rpm',
-                               # SourceCode factories
-                               'BitKeeper', 'CVS', 'Perforce',
-                               'RCS', 'SCCS', # 'Subversion',
+                               'tar', 'zip',
                                ], env)
 
     tools = ([linker, c_compiler, cxx_compiler,
-              fortran_compiler, assembler, ar]
+              fortran_compiler, assembler, ar, d_compiler]
              + other_tools)
 
     return [x for x in tools if x]
@@ -829,4 +1252,3 @@ def tool_list(platform, env):
 # indent-tabs-mode:nil
 # End:
 # vim: set expandtab tabstop=4 shiftwidth=4:
-

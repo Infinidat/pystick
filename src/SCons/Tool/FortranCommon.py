@@ -5,7 +5,7 @@ Stuff for processing Fortran, common to all fortran dialects.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -26,8 +26,9 @@ Stuff for processing Fortran, common to all fortran dialects.
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+from __future__ import print_function
 
-__revision__ = "src/engine/SCons/Tool/FortranCommon.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/FortranCommon.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import re
 import os.path
@@ -61,7 +62,7 @@ def isfortran(env, source):
 def _fortranEmitter(target, source, env):
     node = source[0].rfile()
     if not node.exists() and not node.is_derived():
-       print "Could not locate " + str(node.name)
+       print("Could not locate " + str(node.name))
        return ([], [])
     mod_regex = """(?i)^\s*MODULE\s+(?!PROCEDURE)(\w+)"""
     cre = re.compile(mod_regex,re.M)
@@ -167,7 +168,7 @@ def add_fortran_to_env(env):
     except KeyError:
         FortranSuffixes = ['.f', '.for', '.ftn']
 
-    #print "Adding %s to fortran suffixes" % FortranSuffixes
+    #print("Adding %s to fortran suffixes" % FortranSuffixes)
     try:
         FortranPPSuffixes = env['FORTRANPPFILESUFFIXES']
     except KeyError:
@@ -191,7 +192,7 @@ def add_f77_to_env(env):
     except KeyError:
         F77Suffixes = ['.f77']
 
-    #print "Adding %s to f77 suffixes" % F77Suffixes
+    #print("Adding %s to f77 suffixes" % F77Suffixes)
     try:
         F77PPSuffixes = env['F77PPFILESUFFIXES']
     except KeyError:
@@ -206,7 +207,7 @@ def add_f90_to_env(env):
     except KeyError:
         F90Suffixes = ['.f90']
 
-    #print "Adding %s to f90 suffixes" % F90Suffixes
+    #print("Adding %s to f90 suffixes" % F90Suffixes)
     try:
         F90PPSuffixes = env['F90PPFILESUFFIXES']
     except KeyError:
@@ -222,7 +223,7 @@ def add_f95_to_env(env):
     except KeyError:
         F95Suffixes = ['.f95']
 
-    #print "Adding %s to f95 suffixes" % F95Suffixes
+    #print("Adding %s to f95 suffixes" % F95Suffixes)
     try:
         F95PPSuffixes = env['F95PPFILESUFFIXES']
     except KeyError:
@@ -238,13 +239,28 @@ def add_f03_to_env(env):
     except KeyError:
         F03Suffixes = ['.f03']
 
-    #print "Adding %s to f95 suffixes" % F95Suffixes
+    #print("Adding %s to f95 suffixes" % F95Suffixes)
     try:
         F03PPSuffixes = env['F03PPFILESUFFIXES']
     except KeyError:
         F03PPSuffixes = []
 
     DialectAddToEnv(env, "F03", F03Suffixes, F03PPSuffixes,
+                    support_module = 1)
+
+def add_f08_to_env(env):
+    """Add Builders and construction variables for f08 to an Environment."""
+    try:
+        F08Suffixes = env['F08FILESUFFIXES']
+    except KeyError:
+        F08Suffixes = ['.f08']
+
+    try:
+        F08PPSuffixes = env['F08PPFILESUFFIXES']
+    except KeyError:
+        F08PPSuffixes = []
+
+    DialectAddToEnv(env, "F08", F08Suffixes, F08PPSuffixes,
                     support_module = 1)
 
 def add_all_to_env(env):
@@ -255,6 +271,7 @@ def add_all_to_env(env):
     add_f90_to_env(env)
     add_f95_to_env(env)
     add_f03_to_env(env)
+    add_f08_to_env(env)
 
 # Local Variables:
 # tab-width:4

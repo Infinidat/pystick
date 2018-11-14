@@ -10,7 +10,7 @@ selection method.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -32,7 +32,7 @@ selection method.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Tool/linkloc.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/linkloc.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import os.path
 import re
@@ -52,8 +52,8 @@ def repl_linker_command(m):
     # Replaces any linker command file directives (e.g. "@foo.lnk") with
     # the actual contents of the file.
     try:
-        f=open(m.group(2), "r")
-        return m.group(1) + f.read()
+        with open(m.group(2), "r") as f:
+            return m.group(1) + f.read()
     except IOError:
         # the linker should return an error if it can't
         # find the linker command file so we will remain quiet.
@@ -86,6 +86,7 @@ def generate(env):
     env['SHLINKFLAGS'] = SCons.Util.CLVar('$LINKFLAGS')
     env['SHLINKCOM']   = '${SUBST_CMD_FILE("$SHLINK $SHLINKFLAGS $_LIBDIRFLAGS $_LIBFLAGS -dll $TARGET $SOURCES")}'
     env['SHLIBEMITTER']= None
+    env['LDMODULEEMITTER']= None
     env['LINK']        = "linkloc"
     env['LINKFLAGS']   = SCons.Util.CLVar('')
     env['LINKCOM']     = '${SUBST_CMD_FILE("$LINK $LINKFLAGS $_LIBDIRFLAGS $_LIBFLAGS -exe $TARGET $SOURCES")}'

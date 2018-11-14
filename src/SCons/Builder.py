@@ -1,4 +1,5 @@
-"""SCons.Builder
+"""
+SCons.Builder
 
 Builder object subsystem.
 
@@ -31,7 +32,7 @@ There is also a proxy that looks like a Builder:
 Builders and their proxies have the following public interface methods
 used by other modules:
 
-    __call__()
+    - __call__()
         THE public interface.  Calling a Builder object (with the
         use of internal helper methods) sets up the target and source
         dependencies, appropriate mapping to a specific action, and the
@@ -39,12 +40,12 @@ used by other modules:
         variable.  This also takes care of warning about possible mistakes
         in keyword arguments.
 
-    add_emitter()
+    - add_emitter()
         Adds an emitter for a specific file suffix, used by some Tool
         modules to specify that (for example) a yacc invocation on a .y
         can create a .h *and* a .c file.
 
-    add_action()
+    - add_action()
         Adds an action for a specific file suffix, heavily used by
         Tool modules to add their specific action(s) for turning
         a source file into an object file to the global static
@@ -52,23 +53,23 @@ used by other modules:
 
 There are the following methods for internal use within this module:
 
-    _execute()
+    - _execute()
         The internal method that handles the heavily lifting when a
         Builder is called.  This is used so that the __call__() methods
         can set up warning about possible mistakes in keyword-argument
         overrides, and *then* execute all of the steps necessary so that
         the warnings only occur once.
 
-    get_name()
+    - get_name()
         Returns the Builder's name within a specific Environment,
         primarily used to try to return helpful information in error
         messages.
 
-    adjust_suffix()
-    get_prefix()
-    get_suffix()
-    get_src_suffix()
-    set_src_suffix()
+    - adjust_suffix()
+    - get_prefix()
+    - get_suffix()
+    - get_src_suffix()
+    - set_src_suffix()
         Miscellaneous stuff for handling the prefix and suffix
         manipulation we use in turning source file names into target
         file names.
@@ -76,7 +77,7 @@ There are the following methods for internal use within this module:
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -97,7 +98,7 @@ There are the following methods for internal use within this module:
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-__revision__ = "src/engine/SCons/Builder.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Builder.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import collections
 
@@ -107,8 +108,6 @@ from SCons.Debug import logInstanceCreation
 from SCons.Errors import InternalError, UserError
 import SCons.Executor
 import SCons.Memoize
-import SCons.Node
-import SCons.Node.FS
 import SCons.Util
 import SCons.Warnings
 
@@ -168,7 +167,7 @@ class DictCmdGenerator(SCons.Util.Selector):
 
         try:
             ret = SCons.Util.Selector.__call__(self, env, source, ext)
-        except KeyError, e:
+        except KeyError as e:
             raise UserError("Ambiguous suffixes after environment substitution: %s == %s == %s" % (e.args[0], e.args[1], e.args[2]))
         if ret is None:
             raise UserError("While building `%s' from `%s': Don't know how to build from a source file with suffix `%s'.  Expected a suffix in this list: %s." % \
@@ -231,7 +230,7 @@ class OverrideWarner(collections.UserDict):
     def warn(self):
         if self.already_warned:
             return
-        for k in self.keys():
+        for k in list(self.keys()):
             if k in misleading_keywords:
                 alt = misleading_keywords[k]
                 msg = "Did you mean to use `%s' instead of `%s'?" % (alt, k)
@@ -292,16 +291,26 @@ def _node_errors(builder, env, tlist, slist):
         if t.side_effect:
             raise UserError("Multiple ways to build the same target were specified for: %s" % t)
         if t.has_explicit_builder():
-            if not t.env is None and not t.env is env:
+            # Check for errors when the environments are different
+            # No error if environments are the same Environment instance
+            if (not t.env is None and not t.env is env and
+                    # Check OverrideEnvironment case - no error if wrapped Environments
+                    # are the same instance, and overrides lists match
+                    not (getattr(t.env, '__subject', 0) is getattr(env, '__subject', 1) and
+                         getattr(t.env, 'overrides', 0) == getattr(env, 'overrides', 1) and
+                         not builder.multi)):
                 action = t.builder.action
-                t_contents = action.get_contents(tlist, slist, t.env)
-                contents = action.get_contents(tlist, slist, env)
+                t_contents = t.builder.action.get_contents(tlist, slist, t.env)
+                contents = builder.action.get_contents(tlist, slist, env)
 
                 if t_contents == contents:
                     msg = "Two different environments were specified for target %s,\n\tbut they appear to have the same action: %s" % (t, action.genstring(tlist, slist, t.env))
                     SCons.Warnings.warn(SCons.Warnings.DuplicateEnvironmentWarning, msg)
                 else:
-                    msg = "Two environments with different actions were specified for the same target: %s" % t
+                    try:
+                        msg = "Two environments with different actions were specified for the same target: %s\n(action 1: %s)\n(action 2: %s)" % (t,t_contents.decode('utf-8'),contents.decode('utf-8'))
+                    except UnicodeDecodeError as e:
+                        msg = "Two environments with different actions were specified for the same target: %s"%t
                     raise UserError(msg)
             if builder.multi:
                 if t.builder != builder:
@@ -346,18 +355,16 @@ class EmitterProxy(object):
         return (target, source)
 
 
-    def __cmp__(self, other):
-        return cmp(self.var, other.var)
+    def __eq__(self, other):
+        return self.var == other.var
+
+    def __lt__(self, other):
+        return self.var < other.var
 
 class BuilderBase(object):
     """Base class for Builders, objects that create output
     nodes (files) from input nodes (files).
     """
-
-    if SCons.Memoize.use_memoizer:
-        __metaclass__ = SCons.Memoize.Memoized_Metaclass
-
-    memoizer_counters = []
 
     def __init__(self,  action = None,
                         prefix = '',
@@ -430,6 +437,9 @@ class BuilderBase(object):
     def __nonzero__(self):
         raise InternalError("Do not test for the Node.builder attribute directly; use Node.has_builder() instead")
 
+    def __bool__(self):
+        return self.__nonzero__()
+
     def get_name(self, env):
         """Attempts to get the name of the Builder.
 
@@ -447,8 +457,8 @@ class BuilderBase(object):
             except AttributeError:
                 return str(self.__class__)
 
-    def __cmp__(self, other):
-        return cmp(self.__dict__, other.__dict__)
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
 
     def splitext(self, path, env=None):
         if not env:
@@ -611,6 +621,8 @@ class BuilderBase(object):
         else:
             ekw = self.executor_kw.copy()
             ekw['chdir'] = chdir
+        if 'chdir' in ekw and SCons.Util.is_String(ekw['chdir']):
+            ekw['chdir'] = env.subst(ekw['chdir'])
         if kw:
             if 'srcdir' in kw:
                 def prependDirIfRelative(f, srcdir=kw['srcdir']):
@@ -760,8 +772,7 @@ class BuilderBase(object):
     def _get_src_builders_key(self, env):
         return id(env)
 
-    memoizer_counters.append(SCons.Memoize.CountDict('get_src_builders', _get_src_builders_key))
-
+    @SCons.Memoize.CountDictCall(_get_src_builders_key)
     def get_src_builders(self, env):
         """
         Returns the list of source Builders for this Builder.
@@ -797,8 +808,7 @@ class BuilderBase(object):
     def _subst_src_suffixes_key(self, env):
         return id(env)
 
-    memoizer_counters.append(SCons.Memoize.CountDict('subst_src_suffixes', _subst_src_suffixes_key))
-
+    @SCons.Memoize.CountDictCall(_subst_src_suffixes_key)
     def subst_src_suffixes(self, env):
         """
         The suffix list may contain construction variable expansions,
@@ -862,7 +872,7 @@ class CompositeBuilder(SCons.Util.Proxy):
         self.set_src_suffix(self.cmdgen.src_suffixes())
 
 def is_a_Builder(obj):
-    """"Returns True iff the specified obj is one of our Builder classes.
+    """"Returns True if the specified obj is one of our Builder classes.
 
     The test is complicated a bit by the fact that CompositeBuilder
     is a proxy, not a subclass of BuilderBase.

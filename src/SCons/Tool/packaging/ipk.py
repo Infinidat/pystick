@@ -2,7 +2,7 @@
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 # 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,7 +24,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Tool/packaging/ipk.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/packaging/ipk.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import SCons.Builder
 import SCons.Node.FS
@@ -35,7 +35,7 @@ from SCons.Tool.packaging import stripinstallbuilder, putintopackageroot
 def package(env, target, source, PACKAGEROOT, NAME, VERSION, DESCRIPTION,
             SUMMARY, X_IPK_PRIORITY, X_IPK_SECTION, SOURCE_URL,
             X_IPK_MAINTAINER, X_IPK_DEPENDS, **kw):
-    """ this function prepares the packageroot directory for packaging with the
+    """ This function prepares the packageroot directory for packaging with the
     ipkg builder.
     """
     SCons.Tool.Tool('ipkg').generate(env)
@@ -45,7 +45,7 @@ def package(env, target, source, PACKAGEROOT, NAME, VERSION, DESCRIPTION,
     target, source = stripinstallbuilder(target, source, env)
     target, source = putintopackageroot(target, source, env, PACKAGEROOT)
 
-    # This should be overridable from the construction environment,
+    # This should be overrideable from the construction environment,
     # which it is by using ARCHITECTURE=.
     # Guessing based on what os.uname() returns at least allows it
     # to work for both i386 and x86_64 Linux systems.
@@ -61,7 +61,7 @@ def package(env, target, source, PACKAGEROOT, NAME, VERSION, DESCRIPTION,
     if 'ARCHITECTURE' in kw:
         buildarchitecture = kw['ARCHITECTURE']
 
-    # setup the kw to contain the mandatory arguments to this fucntion.
+    # setup the kw to contain the mandatory arguments to this function.
     # do this before calling any builder or setup function
     loc=locals()
     del loc['kw']
@@ -104,7 +104,7 @@ def gen_ipk_dir(proot, source, env, kw):
     return proot
 
 def build_specfiles(source, target, env):
-    """ filter the targets for the needed files and use the variables in env
+    """ Filter the targets for the needed files and use the variables in env
     to create the specfile.
     """
     #
@@ -120,7 +120,7 @@ def build_specfiles(source, target, env):
             return opened_files[needle]
         except KeyError:
             file=filter(lambda x: x.get_path().rfind(needle)!=-1, haystack)[0]
-            opened_files[needle]=open(file.abspath, 'w')
+            opened_files[needle]=open(file.get_abspath(), 'w')
             return opened_files[needle]
 
     control_file=open_file('control', target)
@@ -169,7 +169,7 @@ Description: $X_IPK_DESCRIPTION
 
     #
     # close all opened files
-    for f in opened_files.values():
+    for f in list(opened_files.values()):
         f.close()
 
     # call a user specified function

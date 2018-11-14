@@ -5,7 +5,7 @@ SCons string substitution.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -26,7 +26,7 @@ SCons string substitution.
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-__revision__ = "src/engine/SCons/Subst.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Subst.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
 import collections
 import re
@@ -338,25 +338,31 @@ SUBST_RAW = 1
 SUBST_SIG = 2
 
 _rm = re.compile(r'\$[()]')
-_remove = re.compile(r'\$\([^\$]*(\$[^\)][^\$]*)*\$\)')
+
+# Note the pattern below only matches $( or $) when there is no
+# preceeding $. (Thus the (?<!\$))
+_rm_split = re.compile(r'(?<!\$)(\$[()])')
 
 # Indexed by the SUBST_* constants above.
-_regex_remove = [ _rm, None, _remove ]
+_regex_remove = [ _rm, None, _rm_split ]
 
 def _rm_list(list):
-    #return [ l for l in list if not l in ('$(', '$)') ]
     return [l for l in list if not l in ('$(', '$)')]
 
 def _remove_list(list):
     result = []
-    do_append = result.append
+    depth = 0
     for l in list:
         if l == '$(':
-            do_append = lambda x: None
+            depth += 1
         elif l == '$)':
-            do_append = result.append
-        else:
-            do_append(l)
+            depth -= 1
+            if depth < 0:
+                break
+        elif depth == 0:
+            result.append(l)
+    if depth != 0:
+        return None
     return result
 
 # Indexed by the SUBST_* constants above.
@@ -434,19 +440,23 @@ def scons_subst(strSubst, env, mode=SUBST_RAW, target=None, source=None, gvars={
                 if s0 != '$':
                     return s
                 if s1 == '$':
-                    return '$'
+                    # In this case keep the double $'s which we'll later
+                    # swap for a single dollar sign as we need to retain
+                    # this information to properly avoid matching "$("" when
+                    # the actual text was "$$(""  (or "$)"" when "$$)"" )
+                    return '$$'
                 elif s1 in '()':
                     return s
                 else:
                     key = s[1:]
-                    if key[0] == '{' or key.find('.') >= 0:
+                    if key[0] == '{' or '.' in key:
                         if key[0] == '{':
                             key = key[1:-1]
                         try:
                             s = eval(key, self.gvars, lvars)
                         except KeyboardInterrupt:
                             raise
-                        except Exception, e:
+                        except Exception as e:
                             if e.__class__ in AllowableExceptions:
                                 return ''
                             raise_exception(e, lvars['TARGETS'], s)
@@ -563,24 +573,37 @@ def scons_subst(strSubst, env, mode=SUBST_RAW, target=None, source=None, gvars={
     except KeyError:
         pass
 
+    res = result
     if is_String(result):
         # Remove $(-$) pairs and any stuff in between,
         # if that's appropriate.
         remove = _regex_remove[mode]
         if remove:
-            result = remove.sub('', result)
+            if mode == SUBST_SIG:
+                result = _list_remove[mode](remove.split(result))
+                if result is None:
+                    raise SCons.Errors.UserError("Unbalanced $(/$) in: " + res)
+                result = ' '.join(result)
+            else:
+                result = remove.sub('', result)
         if mode != SUBST_RAW:
             # Compress strings of white space characters into
             # a single space.
             result = _space_sep.sub(' ', result).strip()
+
+        # Now replace escaped $'s currently "$$"
+        # This is needed because we now retain $$ instead of
+        # replacing them during substition to avoid
+        # improperly trying to escape "$$(" as being "$("
+        result = result.replace('$$','$')
     elif is_Sequence(result):
         remove = _list_remove[mode]
         if remove:
             result = remove(result)
+            if result is None:
+                raise SCons.Errors.UserError("Unbalanced $(/$) in: " + str(res))
 
     return result
-
-#Subst_List_Strings = {}
 
 def scons_subst_list(strSubst, env, mode=SUBST_RAW, target=None, source=None, gvars={}, lvars={}, conv=None):
     """Substitute construction variables in a string (or list or other
@@ -590,12 +613,6 @@ def scons_subst_list(strSubst, env, mode=SUBST_RAW, target=None, source=None, gv
     substitutions within strings, so see that function instead
     if that's what you're looking for.
     """
-#    try:
-#        Subst_List_Strings[strSubst] = Subst_List_Strings[strSubst] + 1
-#    except KeyError:
-#        Subst_List_Strings[strSubst] = 1
-#    import SCons.Debug
-#    SCons.Debug.caller_trace(1)
     class ListSubber(collections.UserList):
         """A class to construct the results of a scons_subst_list() call.
 
@@ -661,7 +678,7 @@ def scons_subst_list(strSubst, env, mode=SUBST_RAW, target=None, source=None, gv
                             s = eval(key, self.gvars, lvars)
                         except KeyboardInterrupt:
                             raise
-                        except Exception, e:
+                        except Exception as e:
                             if e.__class__ in AllowableExceptions:
                                 return
                             raise_exception(e, lvars['TARGETS'], s)

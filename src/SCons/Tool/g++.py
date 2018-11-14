@@ -9,7 +9,7 @@ selection method.
 """
 
 #
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 The SCons Foundation
+# Copyright (c) 2001 - 2017 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -31,57 +31,12 @@ selection method.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Tool/g++.py  2014/03/02 14:18:15 garyo"
+__revision__ = "src/engine/SCons/Tool/g++.py 74b2c53bc42290e911b334a6b44f187da698a668 2017/11/14 13:16:53 bdbaddog"
 
-import os.path
-import re
-import subprocess
 
-import SCons.Tool
-import SCons.Util
+#forward proxy to the preffered cxx version
+from SCons.Tool.gxx import *
 
-cplusplus = __import__('c++', globals(), locals(), [])
-
-compilers = ['g++']
-
-def generate(env):
-    """Add Builders and construction variables for g++ to an Environment."""
-    static_obj, shared_obj = SCons.Tool.createObjBuilders(env)
-
-    cplusplus.generate(env)
-
-    env['CXX']        = env.Detect(compilers)
-
-    # platform specific settings
-    if env['PLATFORM'] == 'aix':
-        env['SHCXXFLAGS'] = SCons.Util.CLVar('$CXXFLAGS -mminimal-toc')
-        env['STATIC_AND_SHARED_OBJECTS_ARE_THE_SAME'] = 1
-        env['SHOBJSUFFIX'] = '$OBJSUFFIX'
-    elif env['PLATFORM'] == 'hpux':
-        env['SHOBJSUFFIX'] = '.pic.o'
-    elif env['PLATFORM'] == 'sunos':
-        env['SHOBJSUFFIX'] = '.pic.o'
-    # determine compiler version
-    if env['CXX']:
-        #pipe = SCons.Action._subproc(env, [env['CXX'], '-dumpversion'],
-        pipe = SCons.Action._subproc(env, [env['CXX'], '--version'],
-                                     stdin = 'devnull',
-                                     stderr = 'devnull',
-                                     stdout = subprocess.PIPE)
-        if pipe.wait() != 0: return
-        # -dumpversion was added in GCC 3.0.  As long as we're supporting
-        # GCC versions older than that, we should use --version and a
-        # regular expression.
-        #line = pipe.stdout.read().strip()
-        #if line:
-        #    env['CXXVERSION'] = line
-        line = pipe.stdout.readline()
-        match = re.search(r'[0-9]+(\.[0-9]+)+', line)
-        if match:
-            env['CXXVERSION'] = match.group(0)
-
-def exists(env):
-    return env.Detect(compilers)
 
 # Local Variables:
 # tab-width:4
