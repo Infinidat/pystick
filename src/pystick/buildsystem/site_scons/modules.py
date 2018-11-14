@@ -4,7 +4,7 @@ from SCons.Script import *
 
 
 def name_to_mangled(name):
-    from utils import mangle_name
+    from .utils import mangle_name
     return mangle_name(name).upper()
 
 
@@ -79,8 +79,8 @@ def add_module(env, name, is_shared, is_pic, sources, append_env=None, depends=[
                                     env['SHOBJSUFFIX' if is_shared else 'OBJSUFFIX'])
 
         # remove empty path parts
-        parts = filter(bool, ('modules', 'obj.{}'.format('shared' if is_shared else 'static'), drive_part, path_part,
-                              obj_fname))
+        parts = list(filter(bool, ('modules', 'obj.{}'.format('shared' if is_shared else 'static'), drive_part, path_part,
+                                   obj_fname)))
         # remove leading path separators from components
         parts = [p[len(os.path.sep):] if p.startswith(os.path.sep) else p for p in parts]
         return os.path.sep.join(parts)

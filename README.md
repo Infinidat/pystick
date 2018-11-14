@@ -45,4 +45,10 @@ Building on OSX:
 
 TODOs
 =====
-- Platforms other than Linux (Windows, OSX) and more Linux flavours (Centos, Ubuntu, Fedora, etc.)x
+- Platforms other than Linux (Windows, OSX) and more Linux flavours (Centos, Ubuntu, Fedora, etc.)
+
+
+Python 3
+========
+
+Support for Python 3 is experimental at this stage

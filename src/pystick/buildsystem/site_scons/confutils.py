@@ -4,7 +4,7 @@ import re
 import types
 
 def convert_header_to_include(header):
-    if isinstance(header, types.StringTypes):
+    if isinstance(header, (str,)):
         header = [header]
     return "\n".join("#include <{}>".format(h) for h in header)
 

@@ -2,7 +2,7 @@
 import re
 import os
 import marshal
-import compile_bytecode
+from . import compile_bytecode
 from SCons.Script import *
 
 
